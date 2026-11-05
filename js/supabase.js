@@ -186,7 +186,7 @@
   // ---------------------------------------------------------------------------
   // Backend 2: modo demostración (localStorage), con los mismos datos iniciales que esquema.sql
   // ---------------------------------------------------------------------------
-  const CLAVE_DEMO = 'konys_demo_v1';
+  const CLAVE_DEMO = 'konys_demo_v2';
   const CLAVE_ADMIN_DEMO = 'konys2026';
 
   function semilla() {
@@ -196,27 +196,29 @@
       ['Mesa 7', 'salon', 2, true], ['Mesa 8', 'terraza', 6, true], ['Mesa 9', 'terraza', 4, false]
     ].map(m => ({ id: uuid(), nombre: m[0], zona: m[1], capacidad: m[2], activa: m[3], foto_url: null, creado_en: new Date().toISOString() }));
 
+    // Horario real de la sede El Prado: lunes a sábado almuerzo y noche, domingo solo noche
     const horarios = [];
     ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'].forEach(d => {
-      horarios.push({ id: uuid(), dia_semana: d, jornada: 'almuerzo', hora_inicio: '12:30', hora_fin: '14:30', duracion_slot: 60, activo: true });
-      horarios.push({ id: uuid(), dia_semana: d, jornada: 'noche', hora_inicio: '17:00', hora_fin: '23:00', duracion_slot: 60, activo: true });
+      if (d !== 'domingo') horarios.push({ id: uuid(), dia_semana: d, jornada: 'almuerzo', hora_inicio: '11:30', hora_fin: '14:00', duracion_slot: 60, activo: true });
+      horarios.push({ id: uuid(), dia_semana: d, jornada: 'noche', hora_inicio: '16:30', hora_fin: '23:00', duracion_slot: 60, activo: true });
     });
 
+    // Carta real de la sede El Prado (pizzas en cono de 18 cm)
     const platos = [
-      ['Pizza Konys Especial', 'pizzas', 'Pepperoni, jamón, champiñones, maíz tierno y queso mozzarella.', 38000, true],
-      ['Pizza Hawaiana', 'pizzas', 'Jamón, piña caramelizada y queso mozzarella.', 32000, true],
-      ['Pizza Pepperoni', 'pizzas', 'Doble pepperoni, salsa de tomate de la casa y orégano.', 34000, true],
-      ['Pizza Vegetariana', 'pizzas', 'Pimentón, cebolla morada, aceitunas, champiñones y tomate.', 31000, true],
-      ['Pizza Mexicana', 'pizzas', 'Carne molida, jalapeños, fríjol, maíz y nachos.', 36000, true],
-      ['Pizza Margarita', 'pizzas', 'Tomate, albahaca fresca y mozzarella.', 29000, true],
-      ['Pan de ajo', 'entradas', 'Pan artesanal con mantequilla de ajo y finas hierbas.', 12000, true],
-      ['Alitas BBQ', 'entradas', '8 alitas en salsa BBQ con papas a la francesa.', 24000, true],
-      ['Palitos de queso', 'entradas', 'Masa de la casa rellena de mozzarella, con salsa napolitana.', 15000, true],
-      ['Brownie con helado', 'postres', 'Brownie tibio de chocolate con helado de vainilla.', 14000, true],
-      ['Postre de tres leches', 'postres', 'Bizcocho húmedo con crema batida y canela.', 12000, false],
-      ['Limonada de coco', 'bebidas', 'Limonada natural con crema de coco.', 10000, true],
-      ['Jugo natural', 'bebidas', 'Mango, mora o lulo, en agua o en leche.', 8000, true],
-      ['Gaseosa 400 ml', 'bebidas', 'Variedad de sabores.', 5000, true]
+      ['Konys Chicken', 'pizzas', 'Pollo en cuadros y maíz.', 29900, true],
+      ['Konys Mary Tierra', 'pizzas', 'Camarón, pollo, pimentón y maíz.', 31900, true],
+      ['Konys BBQ', 'pizzas', 'Pollo en salsa BBQ y cebolla caramelizada.', 29900, true],
+      ['Konys Hawaiana', 'pizzas', 'Tocineta, jamón ahumado y piña.', 29900, true],
+      ['Konys Bucara', 'pizzas', 'Carne Angus y mermelada de tocineta ahumada.', 31900, true],
+      ['Konys Carnes', 'pizzas', 'Pepperoni, jamón ahumado y cabano.', 29900, true],
+      ['Konys Mexicana', 'pizzas', 'Carne molida, maíz, pimentón, cebolla y un toque picante.', 29900, true],
+      ['Konys Especial', 'pizzas', 'Pollo, tocineta, jamón y champiñón.', 30900, true],
+      ['Konys Marinera', 'pizzas', 'Camarón, pulpo, palmito y salsa especial.', 31900, true],
+      ['Konys Vegetariana', 'pizzas', 'Champiñones, tomate, maíz, cebolla caramelizada y parmesano.', 24000, false],
+      ['Papas francesas al horno', 'entradas', 'Porción de 200 g, horneadas.', 10000, true],
+      ['Pan de ajo', 'entradas', 'Porción de pan de ajo.', 2500, true],
+      ['Limonada de panela', 'bebidas', 'Limonada natural endulzada con panela.', 7000, true],
+      ['Coca-Cola 400 ml', 'bebidas', 'Gaseosa Coca-Cola Original.', 5000, true]
     ].map(p => ({ id: uuid(), nombre: p[0], categoria: p[1], descripcion: p[2], precio: p[3], disponible: p[4] }));
 
     // Algunas reservas de ejemplo para hoy y mañana, para ver slots ocupados
@@ -227,16 +229,16 @@
       fecha: fechaISO(fecha), hora_inicio: ini, hora_fin: fin, estado: estado, creado_en: new Date().toISOString()
     });
     const reservas = [
-      r(2, 'Juan Pérez', '300 000 0001', 4, man, '19:00', '20:00', 'confirmada'),
-      r(0, 'María Gómez', null, 2, man, '19:00', '20:00', 'confirmada'),
-      r(3, 'Laura Díaz', '300 000 0003', 4, man, '20:00', '21:00', 'cancelada'),
-      r(1, 'Andrés Rojas', '300 000 0004', 2, hoy, '13:30', '14:30', 'completada'),
-      r(4, 'Sofía Ruiz', null, 6, man, '21:00', '22:00', 'confirmada'),
-      r(7, 'Camilo Pardo', '300 000 0006', 3, hoy, '20:00', '21:00', 'confirmada'),
-      r(6, 'Valentina Ortiz', '300 000 0007', 2, hoy, '19:00', '20:00', 'confirmada'),
-      r(6, 'Diego Suárez', null, 2, hoy, '20:00', '21:00', 'confirmada'),
-      r(6, 'Paula Méndez', '300 000 0009', 2, hoy, '21:00', '22:00', 'confirmada'),
-      r(6, 'Felipe Castro', null, 2, hoy, '22:00', '23:00', 'confirmada')
+      r(2, 'Juan Pérez', '300 000 0001', 4, man, '19:30', '20:30', 'confirmada'),
+      r(0, 'María Gómez', null, 2, man, '19:30', '20:30', 'confirmada'),
+      r(3, 'Laura Díaz', '300 000 0003', 4, man, '20:30', '21:30', 'cancelada'),
+      r(1, 'Andrés Rojas', '300 000 0004', 2, hoy, '12:30', '13:30', 'completada'),
+      r(4, 'Sofía Ruiz', null, 6, man, '21:30', '22:30', 'confirmada'),
+      r(7, 'Camilo Pardo', '300 000 0006', 3, hoy, '20:30', '21:30', 'confirmada'),
+      r(6, 'Valentina Ortiz', '300 000 0007', 2, hoy, '18:30', '19:30', 'confirmada'),
+      r(6, 'Diego Suárez', null, 2, hoy, '19:30', '20:30', 'confirmada'),
+      r(6, 'Paula Méndez', '300 000 0009', 2, hoy, '20:30', '21:30', 'confirmada'),
+      r(6, 'Felipe Castro', null, 2, hoy, '21:30', '22:30', 'confirmada')
     ];
     return { mesas: mesas, horarios: horarios, platos: platos, reservas: reservas };
   }

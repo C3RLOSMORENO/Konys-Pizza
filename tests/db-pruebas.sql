@@ -4,7 +4,7 @@
 -- Datos iniciales
 do $$ begin
   if (select count(*) from mesas) <> 9 then raise exception 'Se esperaban 9 mesas'; end if;
-  if (select count(*) from horarios) <> 14 then raise exception 'Se esperaban 14 horarios'; end if;
+  if (select count(*) from horarios) <> 13 then raise exception 'Se esperaban 13 horarios'; end if;
   if (select count(*) from platos) <> 14 then raise exception 'Se esperaban 14 platos'; end if;
 end $$;
 
