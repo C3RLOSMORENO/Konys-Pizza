@@ -106,9 +106,11 @@
     opciones = opciones || {};
     const headers = {
       apikey: ANON_KEY,
-      Authorization: 'Bearer ' + ANON_KEY,
       'Content-Type': 'application/json'
     };
+    // La anon key antigua (JWT, empieza con "eyJ") también va como Bearer.
+    // La publishable key nueva ("sb_publishable_…") solo va en apikey.
+    if (ANON_KEY.indexOf('eyJ') === 0) headers.Authorization = 'Bearer ' + ANON_KEY;
     if (opciones.prefer) headers.Prefer = opciones.prefer;
     const clave = sessionStorage.getItem(CLAVE_SESION);
     if (clave) headers['x-admin-clave'] = clave;

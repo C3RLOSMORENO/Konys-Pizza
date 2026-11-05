@@ -190,10 +190,15 @@ create policy reservas_admin on public.reservas for all using (public.es_admin()
 -- 6. Datos iniciales
 -- -----------------------------------------------------------------------------
 
--- ⚠️ CAMBIA 'konys2026' por tu propia contraseña de administrador antes de ejecutar.
-insert into public.ajustes (clave, valor)
-values ('admin_hash', extensions.crypt('konys2026', extensions.gen_salt('bf')))
-on conflict (clave) do update set valor = excluded.valor;
+-- La clave del administrador NO va en este archivo (el repo es público).
+-- Después de correr este esquema, en el SQL Editor de Supabase ejecuta aparte,
+-- con tu clave, esta línea (no la guardes en ningún archivo):
+--
+--   insert into public.ajustes (clave, valor)
+--   values ('admin_hash', extensions.crypt('TU_CLAVE', extensions.gen_salt('bf')))
+--   on conflict (clave) do update set valor = excluded.valor;
+--
+-- Mientras no lo hagas, nadie puede entrar al panel de administración.
 
 insert into public.mesas (nombre, zona, capacidad, activa) values
   ('Mesa 1', 'terraza', 4, true),
