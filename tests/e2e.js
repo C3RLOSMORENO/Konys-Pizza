@@ -51,7 +51,7 @@ async function abrirFecha(pg, fecha) {
   await p.goto(URL + '/');
   await p.waitForSelector('.mesa');
   check('RF-01 muestra mesas activas', (await p.locator('.mesa').count()) === 8, (await p.locator('.mesa').count()) + ' tarjetas');
-  check('RF-07 carta oculta platos no disponibles', (await p.locator('text=Postre de tres leches').count()) === 0);
+  check('RF-07 carta oculta platos no disponibles', (await p.locator('text=Konys Vegetariana').count()) === 0);
   await p.click('#filtro-zona [data-zona="terraza"]');
   check('Filtro por zona', (await p.locator('.mesa').count()) === 4);
   await p.click('#filtro-zona [data-zona=""]');
@@ -62,13 +62,13 @@ async function abrirFecha(pg, fecha) {
   check('RF-02 abre el flujo de reserva', await p.isVisible('#calendario'));
   const manana = await p.evaluate(() => { const d = new Date(); d.setDate(d.getDate() + 1); return Konys.util.fechaISO(d); });
   await abrirFecha(p, manana);
-  check('RF-04 horario reservado aparece ocupado', await p.locator('#slots .slot[data-slot="19:00"]').isDisabled());
+  check('RF-04 horario reservado aparece ocupado', await p.locator('#slots .slot[data-slot="19:30"]').isDisabled());
   check('RF-03 días pasados deshabilitados', await p.evaluate(() => {
     const ayer = new Date(); ayer.setDate(ayer.getDate() - 1);
     const b = document.querySelector('[data-fecha="' + Konys.util.fechaISO(ayer) + '"]');
     return !b || b.disabled;
   }));
-  await p.click('#slots .slot[data-slot="20:00"]');
+  await p.click('#slots .slot[data-slot="20:30"]');
   await p.fill('#r-nombre', 'Prueba Automática');
   await p.fill('#r-personas', '9');
   await p.click('#btn-confirmar');
@@ -80,15 +80,15 @@ async function abrirFecha(pg, fecha) {
   // Condición de carrera: otra persona reserva el mismo horario justo antes de confirmar
   await p.evaluate(async (f) => {
     const m = (await Konys.datos.listarMesas()).find(x => x.nombre === 'Mesa 3');
-    await Konys.datos.crearReserva({ mesa_id: m.id, cliente_nombre: 'Otra persona', cliente_contacto: null, num_personas: 2, fecha: f, hora_inicio: '20:00', hora_fin: '21:00' });
+    await Konys.datos.crearReserva({ mesa_id: m.id, cliente_nombre: 'Otra persona', cliente_contacto: null, num_personas: 2, fecha: f, hora_inicio: '20:30', hora_fin: '21:30' });
   }, manana);
   await p.click('#btn-confirmar');
   await p.waitForSelector('#alerta-slot .alerta--error');
   check('§12.2 doble reserva detectada antes de guardar', true, await p.textContent('#alerta-slot strong'));
-  check('El horario tomado pasa a ocupado', await p.locator('#slots .slot[data-slot="20:00"]').isDisabled());
+  check('El horario tomado pasa a ocupado', await p.locator('#slots .slot[data-slot="20:30"]').isDisabled());
   await captura(p, '03-reserva-error.png');
 
-  await p.click('#slots .slot[data-slot="21:00"]');
+  await p.click('#slots .slot[data-slot="21:30"]');
   await p.click('#btn-confirmar');
   await p.waitForSelector('#vista-confirmacion:not([hidden])');
   check('RF-05/RF-06 reserva guardada y comprobante visible', (await p.textContent('#detalle-reserva')).indexOf('Prueba Automática') >= 0);
@@ -97,7 +97,7 @@ async function abrirFecha(pg, fecha) {
   await p.click('#btn-volver');
   await p.click('.mesa:has-text("Mesa 3") [data-mesa]');
   await abrirFecha(p, manana);
-  check('Horario recién reservado aparece ocupado', await p.locator('#slots .slot[data-slot="21:00"]').isDisabled());
+  check('Horario recién reservado aparece ocupado', await p.locator('#slots .slot[data-slot="21:30"]').isDisabled());
   await p.keyboard.press('Escape');
   check('Esc cierra el modal', await p.isHidden('#modal-reserva'));
 
@@ -153,7 +153,7 @@ async function abrirFecha(pg, fecha) {
 
   await a.click('[data-seccion="horarios"]');
   await a.waitForSelector('#tabla-horarios table');
-  check('RF-11 muestra 14 jornadas', (await a.locator('#tabla-horarios tbody tr').count()) === 14);
+  check('RF-11 muestra 13 jornadas (domingo sin almuerzo)', (await a.locator('#tabla-horarios tbody tr').count()) === 13);
   const dur = a.locator('#tabla-horarios tbody tr').first().locator('input[data-campo="duracion_slot"]');
   await dur.fill('30');
   await dur.dispatchEvent('change');

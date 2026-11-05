@@ -152,20 +152,20 @@ const MESAS = [
 ];
 // [nombre, categoría, descripción, precio, disponible]
 const PLATOS = [
-  ['Pizza Konys Especial', 'Pizzas', 'Pepperoni, jamón, champiñones, maíz tierno y queso mozzarella.', '$38.000', true],
-  ['Pizza Hawaiana', 'Pizzas', 'Jamón, piña caramelizada y queso mozzarella.', '$32.000', true],
-  ['Pizza Pepperoni', 'Pizzas', 'Doble pepperoni, salsa de tomate de la casa y orégano.', '$34.000', true],
-  ['Pizza Vegetariana', 'Pizzas', 'Pimentón, cebolla morada, aceitunas, champiñones y tomate.', '$31.000', true],
-  ['Pizza Mexicana', 'Pizzas', 'Carne molida, jalapeños, frijol, maíz y nachos.', '$36.000', true],
-  ['Pizza Margarita', 'Pizzas', 'Tomate, albahaca fresca y mozzarella.', '$29.000', true],
-  ['Pan de ajo', 'Entradas', 'Pan artesanal con mantequilla de ajo y finas hierbas.', '$12.000', true],
-  ['Alitas BBQ', 'Entradas', '8 alitas en salsa BBQ con papas a la francesa.', '$24.000', true],
-  ['Palitos de queso', 'Entradas', 'Masa de la casa rellena de mozzarella, con salsa napolitana.', '$15.000', true],
-  ['Brownie con helado', 'Postres', 'Brownie tibio de chocolate con helado de vainilla.', '$14.000', true],
-  ['Postre de tres leches', 'Postres', 'Bizcocho húmedo con crema batida y canela.', '$12.000', false],
-  ['Limonada de coco', 'Bebidas', 'Limonada natural con crema de coco.', '$10.000', true],
-  ['Jugo natural', 'Bebidas', 'Mango, mora o lulo, en agua o en leche.', '$8.000', true],
-  ['Gaseosa 400 ml', 'Bebidas', 'Variedad de sabores.', '$5.000', true]
+  ['Konys Chicken', 'Pizzas', 'Pollo en cuadros y maíz.', '$29.900', true],
+  ['Konys Mary Tierra', 'Pizzas', 'Camarón, pollo, pimentón y maíz.', '$31.900', true],
+  ['Konys BBQ', 'Pizzas', 'Pollo en salsa BBQ y cebolla caramelizada.', '$29.900', true],
+  ['Konys Hawaiana', 'Pizzas', 'Tocineta, jamón ahumado y piña.', '$29.900', true],
+  ['Konys Bucara', 'Pizzas', 'Carne Angus y mermelada de tocineta ahumada.', '$31.900', true],
+  ['Konys Carnes', 'Pizzas', 'Pepperoni, jamón ahumado y cabano.', '$29.900', true],
+  ['Papas francesas al horno', 'Entradas', 'Porción de 200 g, horneadas.', '$10.000', true],
+  ['Pan de ajo', 'Entradas', 'Porción de pan de ajo.', '$2.500', true],
+  ['Konys Vegetariana', 'Pizzas', 'Champiñones, tomate, maíz y parmesano.', '$24.000', false],
+  ['Konys Especial', 'Pizzas', 'Pollo, tocineta, jamón y champiñón.', '$30.900', true],
+  ['Konys Marinera', 'Pizzas', 'Camarón, pulpo, palmito y salsa especial.', '$31.900', true],
+  ['Limonada de panela', 'Bebidas', 'Limonada natural endulzada con panela.', '$7.000', true],
+  ['Coca-Cola 400 ml', 'Bebidas', 'Gaseosa Coca-Cola Original.', '$5.000', true],
+  ['Konys Mexicana', 'Pizzas', 'Carne molida, maíz, pimentón, cebolla y picante.', '$29.900', true]
 ];
 const RESERVAS = [
   ['Juan Pérez', '300 000 0001', 'Mesa 3', '17/10/2026', '19:00', '4', 'Confirmada'],
@@ -175,8 +175,8 @@ const RESERVAS = [
   ['Sofía Ruiz', 'Sin contacto', 'Mesa 5', '17/10/2026', '21:00', '6', 'Confirmada'],
   ['Camilo Pardo', '300 000 0006', 'Mesa 8', '17/10/2026', '12:30', '3', 'Completada']
 ];
-const SLOTS_ALMUERZO = ['12:30', '13:30'];
-const SLOTS_NOCHE = ['17:00', '18:00', '19:00', '20:00', '21:00', '22:00'];
+const SLOTS_ALMUERZO = ['11:30', '12:30'];
+const SLOTS_NOCHE = ['16:30', '17:30', '18:30', '19:30', '20:30', '21:30'];
 const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 
 // ---------------------------------------------------------------------------
@@ -712,9 +712,9 @@ function makeKit(P) {
       items.forEach(it => K.add(c, K.iconText(it[0], it[1], 'texto/invertido-suave')));
       return c;
     };
-    K.add(cols, col('Visítanos', [['ubicacion', 'Cra. 36 con calle 41, Bucaramanga']]));
-    K.add(cols, col('Horario', [['reloj', '12:30 – 2:30 p. m.'], ['reloj', '5:00 – 11:00 p. m.']]));
-    K.add(cols, col('Contacto', [['telefono', 'WhatsApp +57 300 000 0000'], ['instagram', '@konys_pizza']]));
+    K.add(cols, col('Visítanos', [['ubicacion', 'Cra. 36 #38-64, El Prado']]));
+    K.add(cols, col('Horario', [['reloj', 'Lun – sáb: 11:30 a. m. – 2:00 p. m.'], ['reloj', 'Todos los días: 4:30 – 11:00 p. m.']]));
+    K.add(cols, col('Contacto', [['telefono', 'WhatsApp 322 460 3184'], ['instagram', '@konys_pizza']]));
     K.add(f, F(cols));
     K.add(f, F(K.box({ name: 'divisor', dir: 'h', h: 1, fill: 'texto/invertido-suave', opacity: 0.2 })));
     K.add(f, K.text('© 2026 Konys Pizza · Domicilios y eventos', 'caption', 'texto/invertido-suave'));
@@ -1096,8 +1096,8 @@ function buildComponents(H, root) {
     'Los slots se generan a partir de hora_inicio, hora_fin y duracion_slot de la colección horarios.',
     'Un slot ocupado no es clicable; si se intenta reservar se muestra la Alerta de error (flujo alternativo CU-02).'
   ]);
-  SETS.slot = makeSet('Slot horario', ['Libre', 'Hover', 'Seleccionado', 'Ocupado'].map(e => ({ props: { Estado: e }, node: H.slot('19:00', e) })), b, W);
-  textProp(SETS.slot, 'Hora', 'label', '19:00');
+  SETS.slot = makeSet('Slot horario', ['Libre', 'Hover', 'Seleccionado', 'Ocupado'].map(e => ({ props: { Estado: e }, node: H.slot('19:30', e) })), b, W);
+  textProp(SETS.slot, 'Hora', 'label', '19:30');
   H.slot = (h, e) => { const i = pick(SETS.slot, { Estado: e || 'Libre' }).createInstance(); setText(i, 'label', h); return i; };
 
   b = block(H, s, 'Día de calendario', 'Celda del selector de fecha (RF-03). Solo se habilitan días dentro del horario de operación.', []);
@@ -1175,12 +1175,12 @@ function buildComponents(H, root) {
 
   b = block(H, s, 'Tarjeta de plato', 'Ítem de la carta digital (RF-07): nombre, descripción y precio en COP. Los platos con disponible = false no se muestran.', []);
   const pf = H.box({ name: 'contenedor', dir: 'h', pad: 32, r: 16, fill: 'fondo/superficie', stroke: 'borde/default', dash: true });
-  const plato = figma.createComponentFromNode(H.plato('Pizza Konys Especial', PLATOS[0][2], '$38.000'));
+  const plato = figma.createComponentFromNode(H.plato('Konys Chicken', PLATOS[0][2], '$29.900'));
   plato.name = 'Tarjeta de plato';
   H.add(pf, plato);
-  textPropSingle(plato, 'Nombre', 'nombre', 'Pizza Konys Especial');
+  textPropSingle(plato, 'Nombre', 'nombre', 'Konys Chicken');
   textPropSingle(plato, 'Descripción', 'descripcion', 'Descripción');
-  textPropSingle(plato, 'Precio', 'precio', '$38.000');
+  textPropSingle(plato, 'Precio', 'precio', '$29.900');
   H.add(b, pf);
   SETS.plato = plato;
   H.plato = (n, d, p) => { const i = plato.createInstance(); setText(i, 'nombre', n); setText(i, 'descripcion', d); setText(i, 'precio', p); return i; };
@@ -1206,8 +1206,8 @@ function buildComponents(H, root) {
   const pt = H.box({ name: 'patrones', dir: 'h', gap: 48, pad: 32, r: 16, fill: 'fondo/superficie', stroke: 'borde/default' });
   H.add(pt, H.calendar(17, 15));
   const sl = H.box({ name: 'Grilla de horarios', dir: 'v', gap: 12, w: 420 });
-  H.add(sl, H.text('Noche · 5:00 – 11:00 p. m.', 'label', 'texto/secundario'));
-  H.add(sl, F(H.grid(SLOTS_NOCHE.map(h => H.slot(h, h === '19:00' ? 'Seleccionado' : h === '20:00' ? 'Ocupado' : 'Libre')), 4, 8)));
+  H.add(sl, H.text('Noche · 4:30 – 11:00 p. m.', 'label', 'texto/secundario'));
+  H.add(sl, F(H.grid(SLOTS_NOCHE.map(h => H.slot(h, h === '19:30' ? 'Seleccionado' : h === '20:30' ? 'Ocupado' : 'Libre')), 4, 8)));
   H.add(sl, H.legend());
   H.add(pt, sl);
   H.add(b, pt);
@@ -1284,16 +1284,16 @@ function screen(K, name, w, o) {
 function heroDesktop(K) {
   const hero = K.box({ name: 'Hero', dir: 'h', pad: [80, 120], gap: 64, cross: 'CENTER', fill: 'fondo/primario' });
   const col = K.box({ name: 'texto', dir: 'v', gap: 24 });
-  K.add(col, K.text('Pizzería en Bucaramanga', 'overline', 'texto/acento-claro'));
+  K.add(col, K.text('Pizza en cono · Bucaramanga', 'overline', 'texto/acento-claro'));
   K.add(col, K.text('Konys Pizza', 'display', 'texto/invertido'));
-  K.add(col, K.text('La pizza más icónica de la ciudad. Reserva tu mesa en menos de un minuto, sin llamadas ni esperas.', 'bodyL', 'texto/invertido-suave', { w: 520 }));
+  K.add(col, K.text('La pizza más icónica de la ciudad, servida en cono. Reserva tu mesa en El Prado en menos de un minuto.', 'bodyL', 'texto/invertido-suave', { w: 520 }));
   const btns = K.box({ name: 'acciones', dir: 'h', gap: 16 });
   K.add(btns, K.button('Reserva tu mesa', { tipo: 'Acento', icon: 'calendario' }));
   K.add(btns, K.button('Ver la carta', { tipo: 'Sobre oscuro' }));
   K.add(col, btns);
   const info = K.box({ name: 'info', dir: 'h', gap: 24 });
-  K.add(info, K.iconText('reloj', '12:30 – 2:30 p. m. · 5:00 – 11:00 p. m.', 'texto/invertido-suave'));
-  K.add(info, K.iconText('ubicacion', 'Cra. 36 con calle 41', 'texto/invertido-suave'));
+  K.add(info, K.iconText('reloj', '11:30 a. m. – 2:00 p. m. · 4:30 – 11:00 p. m.', 'texto/invertido-suave'));
+  K.add(info, K.iconText('ubicacion', 'Cra. 36 #38-64, El Prado', 'texto/invertido-suave'));
   K.add(col, info);
   K.add(hero, F(col));
   K.add(hero, K.img(520, 380, { r: 24, label: 'Foto del local / pizza destacada' }));
@@ -1336,8 +1336,8 @@ function reservaModal(K, o) {
   o = o || {};
   const mob = !!o.mobile;
   const err = !!o.error;
-  const sel = err ? null : '19:00';
-  const ocupados = ['13:30', '20:00', '21:00'];
+  const sel = err ? null : '19:30';
+  const ocupados = ['12:30', '20:30', '21:30'];
   const est = h => (h === sel ? 'Seleccionado' : ocupados.indexOf(h) >= 0 ? 'Ocupado' : 'Libre');
   const cols = mob ? 3 : 4;
 
@@ -1345,10 +1345,10 @@ function reservaModal(K, o) {
   K.add(left, K.text('1. Elige la fecha', 'h3', 'texto/principal'));
   K.add(left, K.calendar(17, 15));
   K.add(left, K.text('2. Elige la hora', 'h3', 'texto/principal'));
-  if (err) K.add(left, F(K.alert('Error', 'Ese horario acaba de ser reservado', 'Otra persona tomó las 20:00 hace un momento. Elige otro horario.')));
-  K.add(left, K.text('Almuerzo · 12:30 – 2:30 p. m.', 'label', 'texto/secundario'));
+  if (err) K.add(left, F(K.alert('Error', 'Ese horario acaba de ser reservado', 'Otra persona tomó las 20:30 hace un momento. Elige otro horario.')));
+  K.add(left, K.text('Almuerzo · 11:30 a. m. – 2:00 p. m.', 'label', 'texto/secundario'));
   K.add(left, F(K.grid(SLOTS_ALMUERZO.map(h => K.slot(h, est(h))), cols, 8, 'Slots almuerzo')));
-  K.add(left, K.text('Noche · 5:00 – 11:00 p. m.', 'label', 'texto/secundario'));
+  K.add(left, K.text('Noche · 4:30 – 11:00 p. m.', 'label', 'texto/secundario'));
   K.add(left, F(K.grid(SLOTS_NOCHE.map(h => K.slot(h, est(h))), cols, 8, 'Slots noche')));
   K.add(left, K.legend());
 
@@ -1363,7 +1363,7 @@ function reservaModal(K, o) {
   K.add(sum, K.text('Resumen de tu reserva', 'label', 'texto/principal'));
   K.add(sum, K.iconText('mesa', 'Mesa 3 · Salón'));
   K.add(sum, K.iconText('calendario', 'Sábado 17 de octubre de 2026'));
-  K.add(sum, K.iconText('reloj', err ? 'Elige un horario' : '7:00 – 8:00 p. m. (60 min)'));
+  K.add(sum, K.iconText('reloj', err ? 'Elige un horario' : '7:30 – 8:30 p. m. (60 min)'));
   K.add(sum, K.iconText('personas', err ? '8 personas' : '4 personas'));
   K.add(right, F(sum));
   K.add(right, F(K.button('Confirmar reserva', { tipo: 'Acento', estado: err ? 'Deshabilitado' : 'Default', icon: 'check' })));
@@ -1407,7 +1407,7 @@ function confirmContent(K, mob) {
   K.add(c, K.text('¡Reserva confirmada!', mob ? 'h2' : 'h1', 'texto/marca', { align: 'CENTER' }));
   K.add(c, F(K.text('Te esperamos en Konys Pizza. Guarda este comprobante o tómale una captura de pantalla.', 'body', 'texto/secundario', { align: 'CENTER' })));
   const det = K.box({ name: 'Detalle', dir: 'v', pad: 20, gap: 12, r: 16, fill: 'fondo/sutil' });
-  [['Código', 'KP-1017-1900'], ['Nombre', 'Juan Pérez'], ['Mesa', 'Mesa 3 · Salón'], ['Fecha', 'Sáb 17 oct 2026'], ['Hora', '7:00 – 8:00 p. m.'], ['Personas', '4']].forEach(r => {
+  [['Código', 'KP-1017-1930'], ['Nombre', 'Juan Pérez'], ['Mesa', 'Mesa 3 · Salón'], ['Fecha', 'Sáb 17 oct 2026'], ['Hora', '7:30 – 8:30 p. m.'], ['Personas', '4']].forEach(r => {
     const row = K.box({ name: r[0], dir: 'h', main: 'SPACE_BETWEEN', cross: 'CENTER' });
     K.add(row, K.text(r[0], 'bodyS', 'texto/secundario'));
     K.add(row, K.text(r[1], 'label', 'texto/principal'));
@@ -1444,6 +1444,7 @@ function cartaBody(K, mob) {
   K.add(b, F(cc));
   ['Pizzas', 'Entradas', 'Postres', 'Bebidas'].forEach(cat => {
     const items = PLATOS.filter(p => p[1] === cat && p[4]);
+    if (!items.length) return;
     const g = K.box({ name: cat, dir: 'v', gap: 16 });
     K.add(g, K.text(cat, mob ? 'h3' : 'h2', 'texto/principal'));
     K.add(g, F(K.grid(items.map(p => K.plato(p[0], p[2], p[3])), mob ? 1 : 3, mob ? 12 : 24, 'Platos ' + cat)));
@@ -1623,11 +1624,11 @@ function scrMInicio(K) {
   const s = screen(K, 'Móvil · Inicio', 390);
   K.add(s, F(K.header({ mobile: true })));
   const hero = K.box({ name: 'Hero', dir: 'v', pad: [32, 16], gap: 16, fill: 'fondo/primario' });
-  K.add(hero, K.text('Pizzería en Bucaramanga', 'overline', 'texto/acento-claro'));
+  K.add(hero, K.text('Pizza en cono · Bucaramanga', 'overline', 'texto/acento-claro'));
   K.add(hero, K.text('Konys Pizza', 'displayM', 'texto/invertido'));
   K.add(hero, F(K.text('La pizza más icónica de la ciudad. Reserva tu mesa en menos de un minuto.', 'body', 'texto/invertido-suave')));
   K.add(hero, F(K.button('Reserva tu mesa', { tipo: 'Acento', icon: 'calendario' })));
-  K.add(hero, K.iconText('reloj', '12:30 – 2:30 · 5:00 – 11:00 p. m.', 'texto/invertido-suave'));
+  K.add(hero, K.iconText('reloj', '11:30 – 2:00 · 4:30 – 11:00 p. m.', 'texto/invertido-suave'));
   K.add(s, F(hero));
   const sec = K.box({ name: 'Sección mesas', dir: 'v', pad: [32, 16], gap: 16 });
   K.add(sec, K.text('Nuestras mesas', 'h2', 'texto/marca'));
