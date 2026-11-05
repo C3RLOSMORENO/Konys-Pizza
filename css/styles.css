@@ -251,6 +251,10 @@ button, input, select { font: inherit; color: inherit; }
   place-items: center; color: var(--texto-invertido-suave);
 }
 .hero__foto svg { width: 96px; height: 96px; stroke: var(--naranja-500); }
+.hero__foto img { width: 100%; height: 100%; object-fit: cover; }
+.plato__foto { overflow: hidden; }
+.plato__foto img { width: 100%; height: 100%; object-fit: cover; }
+.creditos { font-size: 11px; opacity: .7; margin-top: var(--e-8); }
 
 .seccion { padding: var(--e-48) 0; }
 .seccion--blanca { background: var(--fondo-superficie); }
@@ -264,7 +268,8 @@ button, input, select { font: inherit; color: inherit; }
   box-shadow: var(--sombra-tarjeta);
 }
 .mesa__foto { aspect-ratio: 282 / 150; background: var(--fondo-primario-suave); display: grid; place-items: center; color: var(--texto-secundario); }
-.mesa__foto img { width: 100%; height: 100%; object-fit: cover; }
+.mesa__foto { overflow: hidden; }
+.mesa__foto img { width: 100%; height: auto; aspect-ratio: 282 / 150; object-fit: cover; }
 .mesa__foto .icono { width: 32px; height: 32px; }
 .mesa__cuerpo { display: flex; flex-direction: column; gap: var(--e-12); padding: var(--e-16); flex: 1; }
 .mesa__titulo { display: flex; align-items: center; justify-content: space-between; gap: var(--e-8); }
