@@ -1,0 +1,99 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  revision:
+    name: Sintaxis y credenciales
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Revisar la sintaxis de los archivos JavaScript
+        run: |
+          shopt -s nullglob
+          for f in js/*.js scripts/*.js tests/*.js docs/figma-plugin/code.js; do
+            node --check "$f" && echo "ok  $f"
+          done
+
+      - name: Revisar que no se suban credenciales
+        run: |
+          if git ls-files --error-unmatch js/config.js 2>/dev/null; then
+            echo "::error::js/config.js no debe estar en el repositorio (tiene las credenciales)"; exit 1
+          fi
+          if git grep -nIE 'eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}' -- . ':!package-lock.json'; then
+            echo "::error::Hay una clave JWT escrita en el código"; exit 1
+          fi
+          echo "Sin credenciales en el código"
+
+  base-de-datos:
+    name: Esquema de Supabase
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ejecutar esquema.sql y las pruebas de la base de datos
+        run: |
+          if [ ! -f supabase/esquema.sql ]; then echo "Todavía no hay esquema"; exit 0; fi
+          psql -v ON_ERROR_STOP=1 -q -f tests/db-preparar.sql
+          psql -v ON_ERROR_STOP=1 -q -f supabase/esquema.sql
+          psql -v ON_ERROR_STOP=1 -f tests/db-pruebas.sql
+
+  e2e:
+    name: Pruebas de punta a punta
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: ¿Está la app completa?
+        id: app
+        run: |
+          for f in index.html admin.html css/styles.css js/supabase.js js/cliente.js js/admin.js; do
+            if [ ! -f "$f" ]; then echo "Falta $f, se omiten las pruebas de punta a punta"; echo "lista=no" >> "$GITHUB_OUTPUT"; exit 0; fi
+          done
+          echo "lista=si" >> "$GITHUB_OUTPUT"
+
+      - name: Instalar dependencias y Chromium
+        if: steps.app.outputs.lista == 'si'
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Correr pruebas (modo demostración)
+        if: steps.app.outputs.lista == 'si'
+        run: |
+          cp js/config.example.js js/config.js
+          node tests/e2e.js . capturas
+
+      - name: Guardar capturas
+        if: always() && steps.app.outputs.lista == 'si'
+        uses: actions/upload-artifact@v4
+        with:
+          name: capturas
+          path: capturas/
+          if-no-files-found: ignore
