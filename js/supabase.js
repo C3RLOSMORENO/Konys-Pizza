@@ -144,6 +144,13 @@
         throw errorApp('RED', 'No pudimos conectar con el servidor. Revisa tu conexión e inténtalo de nuevo.');
       }
     }
+    // Justo después de ejecutar SQL, Supabase recarga su catálogo y responde 404 (PGRST2xx)
+    // durante unos segundos: en lecturas se espera y se reintenta antes de mostrar error.
+    const esLectura = (opciones.method || 'GET') === 'GET' || ruta.indexOf('rpc/') === 0;
+    for (let intento = 0; res.status === 404 && esLectura && intento < 3; intento++) {
+      await new Promise(r => setTimeout(r, 1500));
+      try { res = await pedir(); } catch (e) { break; }
+    }
     if (!res.ok) {
       const det = await res.json().catch(() => ({}));
       console.error('Supabase respondió ' + res.status + ' en ' + ruta, det);
