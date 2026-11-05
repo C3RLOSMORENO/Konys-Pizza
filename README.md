@@ -15,14 +15,20 @@ Si no hay credenciales de Supabase, funciona en modo demo: guarda los datos en e
 
 Para conectarla a Supabase:
 
-1. En el SQL Editor de Supabase ejecutar `supabase/esquema.sql`. Antes, cambiar la clave del admin que está al final del archivo.
-2. Copiar `js/config.example.js` como `js/config.js` y poner la Project URL y la anon key.
+1. En el SQL Editor de Supabase ejecutar `supabase/esquema.sql`.
+2. Ahí mismo crear la clave del admin (no se guarda en ningún archivo del repo):
+   ```sql
+   insert into public.ajustes (clave, valor)
+   values ('admin_hash', extensions.crypt('TU_CLAVE', extensions.gen_salt('bf')))
+   on conflict (clave) do update set valor = excluded.valor;
+   ```
+3. Copiar `.env.example` como `.env`, poner la Project URL y la anon key, y correr `npm run config`.
 
-`js/config.js` está en el `.gitignore`, así que las claves no se suben.
+`.env` y `js/config.js` están en el `.gitignore`, así que no se suben.
 
 ## Vercel
 
-Importar el repo y agregar las variables `SUPABASE_URL` y `SUPABASE_ANON_KEY`. Al desplegar, `scripts/generar-config.js` crea `js/config.js` con esos valores.
+Importar el repo y en Settings → Environment Variables pegar el contenido del `.env`. Al desplegar, `scripts/generar-config.js` crea `js/config.js` con esos valores.
 
 ## Pruebas
 
