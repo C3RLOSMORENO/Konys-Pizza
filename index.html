@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Konys Pizza · Reserva tu mesa</title>
+  <meta name="description" content="Reserva tu mesa en Konys Pizza, la pizza más icónica de Bucaramanga. Elige mesa, fecha y hora en menos de un minuto.">
+  <meta name="theme-color" content="#0F2B3D">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Ccircle cx='20' cy='20' r='20' fill='%23F28C28'/%3E%3Ctext x='20' y='27' font-family='Arial' font-weight='700' font-size='20' text-anchor='middle' fill='%230F2B3D'%3EK%3C/text%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <!-- Íconos SVG reutilizables (§11.3) -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="i-calendario" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></symbol>
+    <symbol id="i-reloj" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="i-personas" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6M16 4.5a3.5 3.5 0 0 1 0 7M18 14.2c2.1.7 3.5 2.8 3.5 5.8"/></symbol>
+    <symbol id="i-ubicacion" viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></symbol>
+    <symbol id="i-telefono" viewBox="0 0 24 24"><path d="M5 3h4l2 5-2.5 1.5a11 11 0 0 0 6 6L16 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 5a2 2 0 0 1 2-2z"/></symbol>
+    <symbol id="i-instagram" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r=".5"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></symbol>
+    <symbol id="i-alerta" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5v.5"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.5v.5"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+    <symbol id="i-candado" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
+    <symbol id="i-chevron-izq" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></symbol>
+    <symbol id="i-chevron-der" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+    <symbol id="i-mesa" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="4" rx="1"/><path d="M6 11v9M18 11v9"/></symbol>
+    <symbol id="i-pizza" viewBox="0 0 24 24"><path d="M12 21L3 6a14 14 0 0 1 18 0z"/><circle cx="10" cy="10" r="1.2"/><circle cx="14" cy="13" r="1.2"/><circle cx="12" cy="16.5" r="1"/></symbol>
+    <symbol id="i-carta" viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 21h15M8 7h7M8 11h5"/></symbol>
+  </svg>
+
+  <p class="banner-demo" id="banner-demo" hidden>
+    Modo demostración: los datos se guardan solo en este navegador. Configura Supabase en <code>js/config.js</code> para usar la base de datos real.
+  </p>
+
+  <header class="encabezado">
+    <div class="contenedor encabezado__barra">
+      <a class="logo" href="#inicio" aria-label="Konys Pizza, ir al inicio">
+        <span class="logo__iso" aria-hidden="true">K</span>
+        <span class="logo__texto"><span class="logo__nombre">KONYS</span><span class="logo__sub">Pizza</span></span>
+      </a>
+      <button class="nav-toggle" id="nav-toggle" aria-expanded="false" aria-controls="nav" aria-label="Abrir menú">
+        <svg class="icono"><use href="#i-menu"/></svg>
+      </button>
+      <nav class="nav" id="nav" aria-label="Principal">
+        <a href="#inicio" aria-current="page">Inicio</a>
+        <a href="#mesas">Mesas</a>
+        <a href="#carta">Carta</a>
+        <a href="#mesas" data-reservar>Reservar</a>
+        <a href="#contacto">Contacto</a>
+        <a class="btn btn--oscuro btn--sm" href="admin.html">
+          <svg class="icono icono-16"><use href="#i-candado"/></svg> Admin
+        </a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <!-- Hero (§11.1) -->
+    <section class="hero" id="inicio">
+      <div class="contenedor hero__grid">
+        <div>
+          <p class="sobretitulo">Pizzería en Bucaramanga</p>
+          <h1>Konys Pizza</h1>
+          <p class="hero__texto">La pizza más icónica de la ciudad. Reserva tu mesa en menos de un minuto, sin llamadas ni esperas.</p>
+          <div class="hero__acciones">
+            <a class="btn btn--acento" href="#mesas"><svg class="icono"><use href="#i-calendario"/></svg> Reserva tu mesa</a>
+            <a class="btn btn--oscuro" href="#carta">Ver la carta</a>
+          </div>
+          <p class="hero__info">
+            <span><svg class="icono icono-16"><use href="#i-reloj"/></svg> 12:30 – 2:30 p. m. · 5:00 – 11:00 p. m.</span>
+            <span><svg class="icono icono-16"><use href="#i-ubicacion"/></svg> Cra. 36 con calle 41</span>
+          </p>
+        </div>
+        <div class="hero__foto" aria-hidden="true"><svg class="icono"><use href="#i-pizza"/></svg></div>
+      </div>
+    </section>
+
+    <!-- Mesas (RF-01, RF-02) -->
+    <section class="seccion" id="mesas" aria-labelledby="titulo-mesas">
+      <div class="contenedor">
+        <div class="seccion__cabecera">
+          <div>
+            <h2 id="titulo-mesas">Nuestras mesas</h2>
+            <p>Elige una mesa para ver sus horarios disponibles.</p>
+          </div>
+          <div class="chips" id="filtro-zona" role="group" aria-label="Filtrar por zona">
+            <button class="chip" aria-pressed="true" data-zona="">Todas</button>
+            <button class="chip" aria-pressed="false" data-zona="terraza">Terraza</button>
+            <button class="chip" aria-pressed="false" data-zona="salon">Salón</button>
+          </div>
+        </div>
+        <div class="grilla-mesas" id="grilla-mesas" aria-live="polite">
+          <p class="cargando">Cargando mesas…</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Carta digital (RF-07) -->
+    <section class="seccion seccion--blanca" id="carta" aria-labelledby="titulo-carta">
+      <div class="contenedor">
+        <div class="seccion__cabecera">
+          <div>
+            <p class="sobretitulo">Carta digital</p>
+            <h2 id="titulo-carta">Nuestra carta</h2>
+            <p>Precios en pesos colombianos. Los pedidos a domicilio siguen por WhatsApp.</p>
+          </div>
+          <div class="chips" id="filtro-categoria" role="group" aria-label="Filtrar por categoría">
+            <button class="chip" aria-pressed="true" data-categoria="">Todo</button>
+            <button class="chip" aria-pressed="false" data-categoria="pizzas">Pizzas</button>
+            <button class="chip" aria-pressed="false" data-categoria="entradas">Entradas</button>
+            <button class="chip" aria-pressed="false" data-categoria="postres">Postres</button>
+            <button class="chip" aria-pressed="false" data-categoria="bebidas">Bebidas</button>
+          </div>
+        </div>
+        <div id="carta-contenido" aria-live="polite">
+          <p class="cargando">Cargando carta…</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Pie de página (§11.1) -->
+  <footer class="pie" id="contacto">
+    <div class="contenedor">
+      <div class="pie__cols">
+        <div>
+          <a class="logo" href="#inicio" aria-label="Konys Pizza">
+            <span class="logo__iso" aria-hidden="true">K</span>
+            <span class="logo__texto"><span class="logo__nombre" style="color:#fff">KONYS</span><span class="logo__sub">Pizza</span></span>
+          </a>
+          <p style="margin-top:12px">La pizza más icónica de la ciudad.</p>
+        </div>
+        <div>
+          <h3>Visítanos</h3>
+          <p><svg class="icono icono-16"><use href="#i-ubicacion"/></svg> Cra. 36 con calle 41, Bucaramanga, Santander</p>
+        </div>
+        <div>
+          <h3>Horario</h3>
+          <p><svg class="icono icono-16"><use href="#i-reloj"/></svg> 12:30 – 2:30 p. m.</p>
+          <p><svg class="icono icono-16"><use href="#i-reloj"/></svg> 5:00 – 11:00 p. m.</p>
+        </div>
+        <div>
+          <h3>Contacto</h3>
+          <a href="https://wa.me/573000000000" rel="noopener"><svg class="icono icono-16"><use href="#i-telefono"/></svg> WhatsApp +57 300 000 0000</a>
+          <a href="https://www.instagram.com/konys_pizza/" rel="noopener"><svg class="icono icono-16"><use href="#i-instagram"/></svg> @konys_pizza</a>
+        </div>
+      </div>
+      <p class="pie__legal">© 2026 Konys Pizza · Domicilios y eventos · <a href="admin.html">Administración</a></p>
+    </div>
+  </footer>
+
+  <!-- Modal de reserva (§11.1 flujo de reserva, RF-03 a RF-06) -->
+  <div class="modal" id="modal-reserva" hidden>
+    <div class="modal__caja" role="dialog" aria-modal="true" aria-labelledby="modal-titulo">
+      <div class="modal__cabecera">
+        <div>
+          <p class="sobretitulo" id="modal-sobretitulo">Reservar</p>
+          <h2 id="modal-titulo">Mesa</h2>
+          <p class="meta" id="modal-meta"></p>
+        </div>
+        <button class="btn-icono" id="modal-cerrar" aria-label="Cerrar">
+          <svg class="icono"><use href="#i-x"/></svg>
+        </button>
+      </div>
+
+      <div class="pasos" id="pasos" aria-label="Progreso de la reserva">
+        <span class="paso" data-paso="1"><span class="paso__num">1</span> Fecha</span>
+        <span class="pasos__linea"></span>
+        <span class="paso" data-paso="2"><span class="paso__num">2</span> Hora</span>
+        <span class="pasos__linea"></span>
+        <span class="paso" data-paso="3"><span class="paso__num">3</span> Tus datos</span>
+      </div>
+
+      <div class="modal__cuerpo">
+        <!-- Vista 1: fecha, hora y datos -->
+        <div class="reserva" id="vista-reserva">
+          <div class="bloque">
+            <h3>1. Elige la fecha</h3>
+            <div class="calendario" id="calendario"></div>
+            <h3>2. Elige la hora</h3>
+            <div id="alerta-slot" aria-live="assertive"></div>
+            <div id="slots" class="bloque" aria-live="polite">
+              <p class="leyenda">Primero elige una fecha.</p>
+            </div>
+            <div class="leyenda-slots" aria-hidden="true">
+              <span><i class="muestra muestra--libre"></i> Libre</span>
+              <span><i class="muestra muestra--ocupado"></i> Ocupado</span>
+              <span><i class="muestra muestra--sel"></i> Seleccionado</span>
+            </div>
+          </div>
+
+          <form class="bloque" id="form-reserva" novalidate>
+            <h3>3. Tus datos</h3>
+            <div class="campo">
+              <label for="r-nombre">Nombre completo</label>
+              <input id="r-nombre" name="nombre" autocomplete="name" placeholder="Ej: Juan Pérez" maxlength="80" required>
+              <span class="error" id="e-nombre" hidden></span>
+            </div>
+            <div class="campo">
+              <label for="r-contacto">Teléfono / WhatsApp (opcional)</label>
+              <input id="r-contacto" name="contacto" type="tel" autocomplete="tel" placeholder="300 000 0000" maxlength="40">
+              <span class="ayuda">Solo lo usaremos si necesitamos contactarte.</span>
+            </div>
+            <div class="campo">
+              <label for="r-personas">Número de personas</label>
+              <input id="r-personas" name="personas" type="number" inputmode="numeric" min="1" placeholder="Ej: 4" required>
+              <span class="ayuda" id="a-personas"></span>
+              <span class="error" id="e-personas" hidden></span>
+            </div>
+
+            <div class="resumen" aria-live="polite">
+              <strong>Resumen de tu reserva</strong>
+              <p class="resumen__fila"><svg class="icono icono-16"><use href="#i-mesa"/></svg> <strong id="s-mesa">—</strong></p>
+              <p class="resumen__fila"><svg class="icono icono-16"><use href="#i-calendario"/></svg> <strong id="s-fecha">Elige una fecha</strong></p>
+              <p class="resumen__fila"><svg class="icono icono-16"><use href="#i-reloj"/></svg> <strong id="s-hora">Elige un horario</strong></p>
+              <p class="resumen__fila"><svg class="icono icono-16"><use href="#i-personas"/></svg> <strong id="s-personas">—</strong></p>
+            </div>
+
+            <div id="alerta-form" aria-live="assertive"></div>
+            <button class="btn btn--acento btn--bloque" id="btn-confirmar" type="submit" disabled>
+              <svg class="icono"><use href="#i-check"/></svg> Confirmar reserva
+            </button>
+            <p class="leyenda" style="text-align:center">No necesitas registrarte ni pagar por adelantado.</p>
+          </form>
+        </div>
+
+        <!-- Vista 2: confirmación (RF-06) -->
+        <div class="confirmacion" id="vista-confirmacion" hidden tabindex="-1">
+          <div class="confirmacion__ok"><svg class="icono"><use href="#i-check"/></svg></div>
+          <h2>¡Reserva confirmada!</h2>
+          <p class="texto-secundario">Te esperamos en Konys Pizza. Guarda este comprobante o tómale una captura de pantalla.</p>
+          <dl class="detalle" id="detalle-reserva"></dl>
+          <div class="alerta alerta--info">
+            <svg class="icono"><use href="#i-info"/></svg>
+            <div><strong>Si no puedes asistir</strong><p>Escríbenos por WhatsApp para liberar la mesa y que otra persona pueda reservarla.</p></div>
+          </div>
+          <div class="confirmacion__acciones">
+            <button class="btn btn--primario" id="btn-volver">Volver al inicio</button>
+            <button class="btn btn--secundario" id="btn-ver-carta">Ver la carta</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" hidden></div>
+
+  <script src="js/config.js"></script>
+  <script src="js/supabase.js"></script>
+  <script src="js/cliente.js"></script>
+</body>
+</html>
