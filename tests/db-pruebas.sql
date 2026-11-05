@@ -8,6 +8,17 @@ do $$ begin
   if (select count(*) from platos) <> 14 then raise exception 'Se esperaban 14 platos'; end if;
 end $$;
 
+-- El esquema no trae clave de admin: mientras no se configure, nadie entra al panel
+set role anon;
+select set_config('request.headers', '{"x-admin-clave":"konys2026"}', false);
+do $$ begin
+  if public.verificar_admin() then raise exception 'Hay una clave de admin por defecto en el esquema'; end if;
+end $$;
+reset role;
+
+-- Clave temporal que solo existe en el Postgres del CI
+insert into ajustes (clave, valor) values ('admin_hash', extensions.crypt('clave-solo-para-ci', extensions.gen_salt('bf')));
+
 -- A partir de aquí actuamos como un visitante sin contraseña (rol anon de Supabase)
 set role anon;
 select set_config('request.headers', '{}', false);
@@ -91,7 +102,7 @@ do $$ begin
 end $$;
 
 -- Con la contraseña correcta el administrador lee y modifica
-select set_config('request.headers', '{"x-admin-clave":"konys2026"}', false);
+select set_config('request.headers', '{"x-admin-clave":"clave-solo-para-ci"}', false);
 do $$
 declare n int;
 begin
