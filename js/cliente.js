@@ -386,11 +386,20 @@
       estado.mesas = r[0];
       estado.horarios = r[1];
       estado.platos = r[2];
+      // Solo se muestran los filtros de categorías que tienen platos
+      document.querySelectorAll('#filtro-categoria [data-categoria]').forEach(b => {
+        b.hidden = !!b.dataset.categoria && !estado.platos.some(p => p.categoria === b.dataset.categoria);
+      });
       renderCarta();
       await cargarOcupadosHoy();
     } catch (e) {
-      $('#grilla-mesas').innerHTML = alerta('error', 'No pudimos cargar las mesas', e.message);
+      $('#grilla-mesas').innerHTML = alerta('error', 'No pudimos cargar las mesas', e.message) +
+        '<button class="btn btn--secundario" id="btn-reintentar" style="margin-top:12px">Reintentar</button>';
       $('#carta-contenido').innerHTML = '';
+      $('#btn-reintentar').addEventListener('click', () => {
+        $('#grilla-mesas').innerHTML = '<p class="cargando">Cargando mesas…</p>';
+        iniciar();
+      });
     }
   }
 
