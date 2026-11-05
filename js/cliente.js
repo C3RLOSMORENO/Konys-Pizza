@@ -13,6 +13,10 @@
   // Cuántos días hacia adelante se puede reservar
   const DIAS_RESERVABLES = 30;
 
+  // Fotos reales de la sede El Prado (ver img/CREDITOS.md)
+  const FOTOS_ZONA = { salon: ['img/salon.jpg', 'img/salon-2.jpg'], terraza: ['img/terraza.jpg'] };
+  const FOTOS_CATEGORIA = { pizzas: 'img/conos.jpg', entradas: 'img/combo.jpg', bebidas: 'img/bebidas.jpg' };
+
   const estado = {
     mesas: [],
     platos: [],
@@ -74,14 +78,17 @@
       return;
     }
     const hoy = hoyISO();
-    cont.innerHTML = lista.map(m => {
+    cont.innerHTML = lista.map((m, i) => {
       const ocupadas = estado.ocupadosHoy.filter(o => o.mesa_id === m.id).map(o => o.hora);
       const libres = slotsConEstado(hoy, ocupadas).filter(s => !s.ocupado).length;
       const badge = libres > 0
         ? '<span class="badge badge--libre">Con cupo hoy</span>'
         : '<span class="badge badge--ocupada">Sin cupo hoy</span>';
-      const foto = m.foto_url
-        ? '<img src="' + escapar(m.foto_url) + '" alt="Foto de ' + escapar(m.nombre) + '" loading="lazy">'
+      // Si la mesa no tiene foto propia, se usa una foto real de su zona
+      const fotosZona = FOTOS_ZONA[m.zona] || [];
+      const src = m.foto_url || fotosZona[i % (fotosZona.length || 1)];
+      const foto = src
+        ? '<img src="' + escapar(src) + '" alt="' + escapar(m.nombre) + ', ' + U.ZONAS[m.zona] + ' de Konys Pizza" loading="lazy">'
         : icono('mesa');
       return '<article class="mesa">' +
         '<div class="mesa__foto">' + foto + '</div>' +
@@ -105,7 +112,9 @@
       if (!platos.length) return '';
       return '<div class="carta-grupo"><h3>' + U.CATEGORIAS[c] + '</h3><div class="grilla-platos">' +
         platos.map(p => '<article class="plato">' +
-          '<div class="plato__foto">' + icono(c === 'bebidas' ? 'carta' : 'pizza') + '</div>' +
+          '<div class="plato__foto">' + (FOTOS_CATEGORIA[c]
+            ? '<img src="' + FOTOS_CATEGORIA[c] + '" alt="" loading="lazy">'
+            : icono(c === 'bebidas' ? 'carta' : 'pizza')) + '</div>' +
           '<div><p class="plato__nombre">' + escapar(p.nombre) + '</p>' +
           '<p class="plato__desc">' + escapar(p.descripcion || '') + '</p>' +
           '<p class="plato__precio">' + U.precioCOP(p.precio) + '</p></div></article>').join('') +
@@ -377,11 +386,20 @@
       estado.mesas = r[0];
       estado.horarios = r[1];
       estado.platos = r[2];
+      // Solo se muestran los filtros de categorías que tienen platos
+      document.querySelectorAll('#filtro-categoria [data-categoria]').forEach(b => {
+        b.hidden = !!b.dataset.categoria && !estado.platos.some(p => p.categoria === b.dataset.categoria);
+      });
       renderCarta();
       await cargarOcupadosHoy();
     } catch (e) {
-      $('#grilla-mesas').innerHTML = alerta('error', 'No pudimos cargar las mesas', e.message);
+      $('#grilla-mesas').innerHTML = alerta('error', 'No pudimos cargar las mesas', e.message) +
+        '<button class="btn btn--secundario" id="btn-reintentar" style="margin-top:12px">Reintentar</button>';
       $('#carta-contenido').innerHTML = '';
+      $('#btn-reintentar').addEventListener('click', () => {
+        $('#grilla-mesas').innerHTML = '<p class="cargando">Cargando mesas…</p>';
+        iniciar();
+      });
     }
   }
 

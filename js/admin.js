@@ -71,6 +71,8 @@
     const clave = $('#clave').value;
     errorCampo('clave', '');
     if (!clave) { errorCampo('clave', 'Escribe la contraseña.'); return; }
+    // La clave viaja en un encabezado HTTP, que no admite tildes ni ñ
+    if (/[^\x20-\x7E]/.test(clave)) { errorCampo('clave', 'La contraseña no puede tener tildes ni ñ.'); return; }
     const btn = $('#btn-ingresar');
     btn.disabled = true;
     try {
@@ -463,7 +465,7 @@
   // Inicio
   if (K.modo === 'demo') $('#banner-demo').hidden = false;
   if (K.haySesionAdmin()) {
-    D.verificarAdmin(sessionStorage.getItem('konys_admin_clave'))
+    D.verificarAdmin(K.claveSesionAdmin())
       .then(ok => { if (ok) mostrarPanel(); else { K.cerrarSesionAdmin(); $('#clave').focus(); } })
       .catch(() => K.cerrarSesionAdmin());
   } else {

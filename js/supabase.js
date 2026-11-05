@@ -8,10 +8,17 @@
   'use strict';
 
   const CONFIG = window.KONYS_CONFIG || {};
-  const URL_BASE = (CONFIG.SUPABASE_URL || '').replace(/\/$/, '');
-  const ANON_KEY = CONFIG.SUPABASE_ANON_KEY || '';
+  // Se acepta la URL con o sin "https://" y con o sin "/rest/v1/" al final
+  let URL_BASE = String(CONFIG.SUPABASE_URL || '').trim().replace(/\/+$/, '').replace(/\/rest\/v1$/, '');
+  if (URL_BASE && !/^https?:\/\//.test(URL_BASE)) URL_BASE = 'https://' + URL_BASE;
+  const ANON_KEY = String(CONFIG.SUPABASE_ANON_KEY || '').trim();
   const MODO = URL_BASE && ANON_KEY ? 'supabase' : 'demo';
   const CLAVE_SESION = 'konys_admin_clave';
+
+  // sessionStorage puede fallar si el navegador bloquea el almacenamiento: nunca debe romper la app
+  function leerSesion() { try { return sessionStorage.getItem(CLAVE_SESION); } catch (e) { return null; } }
+  function guardarSesion(v) { try { sessionStorage.setItem(CLAVE_SESION, v); } catch (e) { /* sin almacenamiento */ } }
+  function borrarSesion() { try { sessionStorage.removeItem(CLAVE_SESION); } catch (e) { /* sin almacenamiento */ } }
 
   // ---------------------------------------------------------------------------
   // Utilidades de fecha y hora (siempre en hora local del navegador)
@@ -94,8 +101,11 @@
     if (msg.indexOf('MESA_INACTIVA') >= 0) return errorApp('MESA_INACTIVA', 'La mesa no está disponible.');
     if (msg.indexOf('FECHA_PASADA') >= 0) return errorApp('FECHA_PASADA', 'La fecha ya pasó.');
     if (e && e.code === '23503') return errorApp('TIENE_RESERVAS', 'La mesa tiene reservas asociadas.');
+    if (e && /api key/i.test(msg)) return errorApp('CONFIG', 'La key de Supabase no es válida. Revisa SUPABASE_ANON_KEY.');
     if (e && (e.code === '42501' || e.status === 401 || e.status === 403)) return errorApp('NO_AUTORIZADO', 'No autorizado.');
     if (e && e.codigo) return e;
+    if (e && e.status === 404) return errorApp('CONFIG', 'Supabase no encontró el recurso (404). Revisa SUPABASE_URL y que esquema.sql se haya ejecutado.');
+    if (e && e.status) return errorApp('SERVIDOR', 'El servidor respondió con un error (' + e.status + '). ' + msg);
     return errorApp('RED', 'No pudimos conectar con el servidor. Revisa tu conexión e inténtalo de nuevo.');
   }
 
@@ -112,21 +122,38 @@
     // La publishable key nueva ("sb_publishable_…") solo va en apikey.
     if (ANON_KEY.indexOf('eyJ') === 0) headers.Authorization = 'Bearer ' + ANON_KEY;
     if (opciones.prefer) headers.Prefer = opciones.prefer;
-    const clave = sessionStorage.getItem(CLAVE_SESION);
+    const clave = leerSesion();
     if (clave) headers['x-admin-clave'] = clave;
 
+    const pedir = () => fetch(URL_BASE + '/rest/v1/' + ruta, {
+      method: opciones.method || 'GET',
+      headers: headers,
+      body: opciones.body ? JSON.stringify(opciones.body) : undefined
+    });
     let res;
     try {
-      res = await fetch(URL_BASE + '/rest/v1/' + ruta, {
-        method: opciones.method || 'GET',
-        headers: headers,
-        body: opciones.body ? JSON.stringify(opciones.body) : undefined
-      });
+      res = await pedir();
     } catch (e) {
-      throw errorApp('RED', 'No pudimos conectar con el servidor.');
+      // Un corte momentáneo de red: se reintenta una vez solo en lecturas
+      if ((opciones.method || 'GET') === 'GET') {
+        await new Promise(r => setTimeout(r, 800));
+        try { res = await pedir(); } catch (e2) { e = e2; }
+      }
+      if (!res) {
+        console.error('Supabase: fallo de red en', ruta, e);
+        throw errorApp('RED', 'No pudimos conectar con el servidor. Revisa tu conexión e inténtalo de nuevo.');
+      }
+    }
+    // Justo después de ejecutar SQL, Supabase recarga su catálogo y responde 404 (PGRST2xx)
+    // durante unos segundos: en lecturas se espera y se reintenta antes de mostrar error.
+    const esLectura = (opciones.method || 'GET') === 'GET' || ruta.indexOf('rpc/') === 0;
+    for (let intento = 0; res.status === 404 && esLectura && intento < 3; intento++) {
+      await new Promise(r => setTimeout(r, 1500));
+      try { res = await pedir(); } catch (e) { break; }
     }
     if (!res.ok) {
       const det = await res.json().catch(() => ({}));
+      console.error('Supabase respondió ' + res.status + ' en ' + ruta, det);
       const e = new Error(det.message || res.statusText);
       e.code = det.code; e.status = res.status;
       throw traducirError(e);
@@ -178,7 +205,7 @@
     actualizarReserva: (id, c) => rest('reservas?id=eq.' + enc(id), { method: 'PATCH', body: c, prefer: 'return=minimal' }),
 
     verificarAdmin: (clave) => {
-      sessionStorage.setItem(CLAVE_SESION, clave);
+      guardarSesion(clave);
       return rest('rpc/verificar_admin', { method: 'POST', body: {} });
     }
   };
@@ -259,7 +286,7 @@
   const copia = (v) => JSON.parse(JSON.stringify(v));
 
   function exigirAdmin() {
-    if (sessionStorage.getItem(CLAVE_SESION) !== CLAVE_ADMIN_DEMO) throw errorApp('NO_AUTORIZADO', 'No autorizado.');
+    if (leerSesion() !== CLAVE_ADMIN_DEMO) throw errorApp('NO_AUTORIZADO', 'No autorizado.');
   }
   function actualizarEn(lista, id, cambios) {
     const i = lista.findIndex(x => x.id === id);
@@ -337,7 +364,7 @@
     async actualizarReserva(id, c) { exigirAdmin(); const d = leer(); actualizarEn(d.reservas, id, c); guardar(d); return espera(null); },
 
     async verificarAdmin(clave) {
-      sessionStorage.setItem(CLAVE_SESION, clave);
+      guardarSesion(clave);
       return espera(clave === CLAVE_ADMIN_DEMO);
     },
 
@@ -352,8 +379,9 @@
   window.Konys = {
     modo: MODO,
     datos: api,
-    cerrarSesionAdmin: () => sessionStorage.removeItem(CLAVE_SESION),
-    haySesionAdmin: () => !!sessionStorage.getItem(CLAVE_SESION),
+    cerrarSesionAdmin: borrarSesion,
+    claveSesionAdmin: leerSesion,
+    haySesionAdmin: () => !!leerSesion(),
     util: {
       fechaISO, parseFecha, aMinutos, aHora, hora12, fechaLarga, fechaCorta, diaSemana, precioCOP, generarSlots,
       DIAS, DIAS_LEGIBLES, MESES,

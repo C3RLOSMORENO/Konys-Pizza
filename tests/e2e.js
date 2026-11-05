@@ -11,7 +11,7 @@ const ROOT = path.resolve(process.argv[2] || path.join(__dirname, '..'));
 const OUT = process.argv[3] ? path.resolve(process.argv[3]) : null;
 const PUERTO = 5173;
 const URL = 'http://localhost:' + PUERTO;
-const TIPOS = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.svg': 'image/svg+xml' };
+const TIPOS = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.svg': 'image/svg+xml', '.jpg': 'image/jpeg' };
 
 // Servidor estático mínimo (igual que Vercel con cleanUrls: /admin → admin.html)
 const servidor = http.createServer((req, res) => {
