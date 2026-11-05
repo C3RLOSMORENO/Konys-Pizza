@@ -233,7 +233,12 @@
     }
     const grupos = {};
     slots.forEach(s => { (grupos[s.jornada] = grupos[s.jornada] || []).push(s); });
-    const rango = (lista) => U.hora12(lista[0].inicio) + ' – ' + U.hora12(lista[lista.length - 1].fin);
+    // El título usa la hora de apertura y cierre real de la jornada (tabla horarios)
+    const dia = U.diaSemana(estado.fecha);
+    const rango = (lista) => {
+      const h = estado.horarios.find(x => x.activo && x.dia_semana === dia && x.jornada === lista[0].jornada);
+      return h ? U.hora12(h.hora_inicio) + ' – ' + U.hora12(h.hora_fin) : U.hora12(lista[0].inicio) + ' – ' + U.hora12(lista[lista.length - 1].fin);
+    };
     cont.innerHTML = Object.keys(grupos).map(j =>
       '<div class="bloque" style="gap:8px"><p class="jornada-titulo">' + U.JORNADAS[j] + ' · ' + rango(grupos[j]) + '</p>' +
       '<div class="slots">' + grupos[j].map(s =>
