@@ -13,8 +13,9 @@ if (fs.existsSync(archivoEnv)) {
   });
 }
 
-const url = process.env.SUPABASE_URL || '';
-const key = process.env.SUPABASE_ANON_KEY || '';
+// Acepta la URL con o sin "/rest/v1/" al final (la app agrega esa parte sola)
+const url = (process.env.SUPABASE_URL || '').trim().replace(/\/+$/, '').replace(/\/rest\/v1$/, '');
+const key = (process.env.SUPABASE_ANON_KEY || '').trim();
 
 if (!url || !key) {
   console.warn('⚠️  Faltan SUPABASE_URL o SUPABASE_ANON_KEY: la app queda en modo demostración.');
