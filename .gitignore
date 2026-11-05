@@ -1,0 +1,21 @@
+# Credenciales locales de Supabase (nunca subirlas a GitHub)
+js/config.js
+.env
+.env.*
+
+# Vercel
+.vercel/
+
+# Sistema y editores
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+node_modules/
+
+# El documento original ya está copiado en docs/Documento-Proyecto.pdf
+/documento_30_paginas.pdf
+
+# Capturas que genera el CI
+/capturas/
