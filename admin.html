@@ -49,7 +49,7 @@
       <form id="form-acceso" novalidate>
         <div class="campo">
           <label for="clave">Contraseña</label>
-          <input id="clave" type="password" autocomplete="current-password" required>
+          <input id="clave" type="password" autocomplete="current-password" maxlength="72" required aria-describedby="e-clave">
           <span class="error" id="e-clave" hidden></span>
         </div>
         <button class="btn btn--primario btn--bloque" type="submit" id="btn-ingresar">
@@ -193,10 +193,10 @@
         <button type="button" class="btn-icono" data-cerrar aria-label="Cerrar"><svg class="icono"><use href="#i-x"/></svg></button>
       </div>
       <div class="modal__cuerpo bloque">
-        <div class="campo"><label for="m-nombre">Nombre o número</label><input id="m-nombre" placeholder="Ej: Mesa 10" maxlength="40" required><span class="error" id="e-m-nombre" hidden></span></div>
+        <div class="campo"><label for="m-nombre">Nombre o número</label><input id="m-nombre" placeholder="Ej: Mesa 10" maxlength="40" required aria-describedby="e-m-nombre"><span class="error" id="e-m-nombre" hidden></span></div>
         <div class="campo"><label for="m-zona">Zona</label><select id="m-zona"><option value="terraza">Terraza</option><option value="salon">Salón</option></select></div>
-        <div class="campo"><label for="m-capacidad">Capacidad (personas)</label><input id="m-capacidad" type="number" min="1" max="30" required><span class="ayuda">Número máximo de personas que caben en la mesa.</span><span class="error" id="e-m-capacidad" hidden></span></div>
-        <div class="campo"><label for="m-foto">URL de la foto (opcional)</label><input id="m-foto" type="url" placeholder="https://…"><span class="ayuda">Puedes subir la foto a Supabase Storage y pegar aquí su enlace público.</span></div>
+        <div class="campo"><label for="m-capacidad">Capacidad (personas)</label><input id="m-capacidad" type="text" inputmode="numeric" maxlength="2" autocomplete="off" required aria-describedby="e-m-capacidad"><span class="ayuda">Número máximo de personas que caben en la mesa (1 a 30).</span><span class="error" id="e-m-capacidad" hidden></span></div>
+        <div class="campo"><label for="m-foto">URL de la foto (opcional)</label><input id="m-foto" type="url" inputmode="url" placeholder="https://…" maxlength="300" aria-describedby="e-m-foto"><span class="ayuda">Puedes subir la foto a Supabase Storage y pegar aquí su enlace público (debe empezar por https://).</span><span class="error" id="e-m-foto" hidden></span></div>
         <label class="toggle"><input type="checkbox" id="m-activa" checked><span class="toggle__pista"></span> Mesa activa (disponible para reservas)</label>
       </div>
       <div class="modal__pie">
@@ -214,11 +214,11 @@
         <button type="button" class="btn-icono" data-cerrar aria-label="Cerrar"><svg class="icono"><use href="#i-x"/></svg></button>
       </div>
       <div class="modal__cuerpo bloque">
-        <div class="campo"><label for="p-nombre">Nombre</label><input id="p-nombre" placeholder="Ej: Pizza Konys Especial" maxlength="80" required><span class="error" id="e-p-nombre" hidden></span></div>
+        <div class="campo"><label for="p-nombre">Nombre</label><input id="p-nombre" placeholder="Ej: Pizza Konys Especial" maxlength="80" required aria-describedby="e-p-nombre"><span class="error" id="e-p-nombre" hidden></span></div>
         <div class="campo"><label for="p-categoria">Categoría</label>
           <select id="p-categoria"><option value="pizzas">Pizzas</option><option value="entradas">Entradas</option><option value="postres">Postres</option><option value="bebidas">Bebidas</option></select></div>
-        <div class="campo"><label for="p-descripcion">Descripción</label><input id="p-descripcion" placeholder="Ingredientes principales" maxlength="160"></div>
-        <div class="campo"><label for="p-precio">Precio (COP)</label><input id="p-precio" type="number" min="0" step="500" placeholder="Ej: 32000" required><span class="error" id="e-p-precio" hidden></span></div>
+        <div class="campo"><label for="p-descripcion">Descripción</label><input id="p-descripcion" placeholder="Ingredientes principales" maxlength="160" aria-describedby="e-p-descripcion"><span class="error" id="e-p-descripcion" hidden></span></div>
+        <div class="campo"><label for="p-precio">Precio (COP)</label><input id="p-precio" type="text" inputmode="numeric" maxlength="7" autocomplete="off" placeholder="Ej: 32000" required aria-describedby="e-p-precio"><span class="ayuda">En pesos, solo números y sin puntos (de 100 a 1000000).</span><span class="error" id="e-p-precio" hidden></span></div>
         <label class="toggle"><input type="checkbox" id="p-disponible" checked><span class="toggle__pista"></span> Visible en la carta</label>
       </div>
       <div class="modal__pie">
@@ -231,6 +231,7 @@
   <div class="toast" id="toast" role="status" hidden></div>
 
   <script src="js/config.js"></script>
+  <script src="js/validacion.js"></script>
   <script src="js/supabase.js"></script>
   <script src="js/admin.js"></script>
 </body>

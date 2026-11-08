@@ -203,17 +203,18 @@
             <h3>3. Tus datos</h3>
             <div class="campo">
               <label for="r-nombre">Nombre completo</label>
-              <input id="r-nombre" name="nombre" autocomplete="name" placeholder="Ej: Juan Pérez" maxlength="80" required>
+              <input id="r-nombre" name="nombre" autocomplete="name" placeholder="Ej: Juan Pérez" maxlength="80" required aria-describedby="e-nombre">
               <span class="error" id="e-nombre" hidden></span>
             </div>
             <div class="campo">
               <label for="r-contacto">Teléfono / WhatsApp (opcional)</label>
-              <input id="r-contacto" name="contacto" type="tel" autocomplete="tel" placeholder="300 000 0000" maxlength="40">
-              <span class="ayuda">Solo lo usaremos si necesitamos contactarte.</span>
+              <input id="r-contacto" name="contacto" type="tel" inputmode="tel" autocomplete="tel" placeholder="300 123 4567" maxlength="20" aria-describedby="a-contacto e-contacto">
+              <span class="ayuda" id="a-contacto">Celular o fijo de Colombia (10 dígitos). Solo lo usaremos si necesitamos contactarte.</span>
+              <span class="error" id="e-contacto" hidden></span>
             </div>
             <div class="campo">
               <label for="r-personas">Número de personas</label>
-              <input id="r-personas" name="personas" type="number" inputmode="numeric" min="1" placeholder="Ej: 4" required>
+              <input id="r-personas" name="personas" type="text" inputmode="numeric" maxlength="2" autocomplete="off" placeholder="Ej: 4" required aria-describedby="a-personas e-personas">
               <span class="ayuda" id="a-personas"></span>
               <span class="error" id="e-personas" hidden></span>
             </div>
@@ -256,6 +257,7 @@
   <div class="toast" id="toast" role="status" hidden></div>
 
   <script src="js/config.js"></script>
+  <script src="js/validacion.js"></script>
   <script src="js/supabase.js"></script>
   <script src="js/cliente.js"></script>
 </body>
