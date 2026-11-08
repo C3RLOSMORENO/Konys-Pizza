@@ -199,28 +199,92 @@ create trigger reservas_validar
 
 -- -----------------------------------------------------------------------------
 -- 3. Acceso de administrador
---    El panel envía la contraseña en el encabezado HTTP "x-admin-clave".
---    La base de datos la compara con el hash guardado en "ajustes".
---    Así la contraseña nunca queda escrita en el código del repositorio (RNF-05).
+--    La contraseña viaja una sola vez (iniciar_sesion) y la base de datos la compara con
+--    el hash guardado en "ajustes". Devuelve un token que vence a los 10 minutos; el panel
+--    lo envía en el encabezado "x-admin-token". Así la contraseña nunca queda escrita en
+--    el código ni guardada en el navegador (RNF-05). Igual que supabase/seguridad.sql.
 -- -----------------------------------------------------------------------------
+create table if not exists public.sesiones_admin (
+  token  uuid primary key default gen_random_uuid(),
+  creada timestamptz not null default now(),
+  expira timestamptz not null
+);
+
+create table if not exists public.intentos_acceso (
+  id     bigserial primary key,
+  en     timestamptz not null default now(),
+  exito  boolean not null
+);
+
+-- Nadie las lee ni las modifica por la API: solo las funciones de abajo
+alter table public.sesiones_admin  enable row level security;
+alter table public.intentos_acceso enable row level security;
+revoke all on public.sesiones_admin, public.intentos_acceso from anon, authenticated;
+
+-- Versiones anteriores comprobaban la contraseña en cada petición (encabezado x-admin-clave)
+drop function if exists public.verificar_admin();
+drop function if exists public.iniciar_sesion(text);
+drop function if exists public.cerrar_sesion();
+
+-- ¿La petición trae un token de sesión vigente? (encabezado HTTP "x-admin-token")
 create or replace function public.es_admin()
 returns boolean
 language sql
 stable
 security definer
-set search_path = public, extensions
+set search_path = public
 as $$
   select exists (
     select 1
-    from public.ajustes a
-    where a.clave = 'admin_hash'
-      and a.valor = extensions.crypt(
-        coalesce(current_setting('request.headers', true)::json ->> 'x-admin-clave', ''),
-        a.valor)
+    from public.sesiones_admin s
+    where s.token::text = coalesce(current_setting('request.headers', true)::json ->> 'x-admin-token', '')
+      and s.expira > now()
   );
 $$;
 
--- Usada por la pantalla de acceso (/admin) para comprobar la contraseña.
+-- Inicia sesión: si la contraseña es correcta devuelve {token, segundos}; si no, null.
+create or replace function public.iniciar_sesion(p_clave text)
+returns json
+language plpgsql
+volatile
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_hash text;
+  v_fallidos int;
+  v_token uuid;
+  v_expira timestamptz;
+begin
+  -- Limpieza de sesiones vencidas e intentos viejos
+  delete from public.sesiones_admin where expira <= now();
+  delete from public.intentos_acceso where en < now() - interval '1 day';
+
+  -- Bloqueo por fuerza bruta: 5 fallos seguidos en los últimos 10 minutos
+  select count(*) into v_fallidos
+  from public.intentos_acceso
+  where not exito
+    and en > now() - interval '10 minutes'
+    and en > coalesce((select max(en) from public.intentos_acceso where exito), '-infinity');
+  if v_fallidos >= 5 then
+    raise exception 'BLOQUEADO' using hint = 'Demasiados intentos fallidos. Espera 10 minutos.';
+  end if;
+
+  select valor into v_hash from public.ajustes where clave = 'admin_hash';
+  if v_hash is null or p_clave is null or char_length(p_clave) > 72
+     or extensions.crypt(p_clave, v_hash) <> v_hash then
+    insert into public.intentos_acceso (exito) values (false);
+    return null;
+  end if;
+
+  insert into public.intentos_acceso (exito) values (true);
+  v_expira := now() + interval '10 minutes';
+  insert into public.sesiones_admin (expira) values (v_expira) returning token into v_token;
+  return json_build_object('token', v_token, 'segundos', 600);
+end;
+$$;
+
+-- Usada al recargar el panel: ¿el token sigue vigente?
 create or replace function public.verificar_admin()
 returns boolean
 language sql
@@ -229,8 +293,23 @@ security definer
 set search_path = public
 as $$ select public.es_admin(); $$;
 
+-- Cierra la sesión: el token deja de servir aunque alguien lo haya copiado
+create or replace function public.cerrar_sesion()
+returns void
+language sql
+volatile
+security definer
+set search_path = public
+as $$
+  delete from public.sesiones_admin
+  where token::text = coalesce(current_setting('request.headers', true)::json ->> 'x-admin-token', '');
+$$;
+
+revoke all on function public.iniciar_sesion(text), public.verificar_admin(), public.cerrar_sesion() from public;
 grant execute on function public.es_admin() to anon, authenticated;
+grant execute on function public.iniciar_sesion(text) to anon, authenticated;
 grant execute on function public.verificar_admin() to anon, authenticated;
+grant execute on function public.cerrar_sesion() to anon, authenticated;
 
 -- -----------------------------------------------------------------------------
 -- 4. Vista pública de horarios ocupados

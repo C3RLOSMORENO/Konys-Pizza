@@ -10,9 +10,9 @@ end $$;
 
 -- El esquema no trae clave de admin: mientras no se configure, nadie entra al panel
 set role anon;
-select set_config('request.headers', '{"x-admin-clave":"konys2026"}', false);
+select set_config('request.headers', '{}', false);
 do $$ begin
-  if public.verificar_admin() then raise exception 'Hay una clave de admin por defecto en el esquema'; end if;
+  if public.iniciar_sesion('konys2026') is not null then raise exception 'Hay una clave de admin por defecto en el esquema'; end if;
 end $$;
 reset role;
 
@@ -96,17 +96,37 @@ begin
 end $$;
 
 -- Con una contraseña incorrecta tampoco
-select set_config('request.headers', '{"x-admin-clave":"incorrecta"}', false);
 do $$ begin
-  if public.verificar_admin() then raise exception 'Se aceptó una contraseña incorrecta'; end if;
+  if public.iniciar_sesion('incorrecta') is not null then raise exception 'Se aceptó una contraseña incorrecta'; end if;
+end $$;
+
+-- La contraseña ya no sirve como encabezado: solo un token de sesión
+select set_config('request.headers', '{"x-admin-clave":"clave-solo-para-ci"}', false);
+do $$ begin
+  if public.verificar_admin() then raise exception 'Se aceptó la contraseña enviada como encabezado'; end if;
+end $$;
+select set_config('request.headers', '{"x-admin-token":"no-es-un-uuid"}', false);
+do $$ begin
+  if public.verificar_admin() then raise exception 'Se aceptó un token inventado'; end if;
 end $$;
 
 -- Con la contraseña correcta el administrador lee y modifica
-select set_config('request.headers', '{"x-admin-clave":"clave-solo-para-ci"}', false);
+-- Con la contraseña correcta se recibe un token que vence a los 10 minutos
+select set_config('request.headers', json_build_object('x-admin-token', public.iniciar_sesion('clave-solo-para-ci') ->> 'token')::text, false);
 do $$
 declare n int;
 begin
   if not public.verificar_admin() then raise exception 'Se rechazó la contraseña correcta'; end if;
+  begin
+    perform count(*) from sesiones_admin;
+    raise exception 'Por la API se pueden leer los tokens de sesión';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform count(*) from intentos_acceso;
+    raise exception 'Por la API se pueden leer los intentos de acceso';
+  exception when insufficient_privilege then null;
+  end;
   if (select count(*) from reservas) <> 1 then raise exception 'El administrador no puede leer las reservas'; end if;
   if (select count(*) from platos) <> 14 then raise exception 'El administrador no ve los platos ocultos'; end if;
   update mesas set activa = false where nombre = 'Mesa 1';
@@ -188,5 +208,43 @@ select pg_temp.rechaza($$update horarios set duracion_slot = 17 where dia_semana
 select pg_temp.rechaza($$update horarios set duracion_slot = 240 where dia_semana = 'lunes' and jornada = 'almuerzo'$$, 'horarios_duracion_valida');
 select pg_temp.rechaza($$update horarios set hora_fin = '10:00' where dia_semana = 'lunes' and jornada = 'almuerzo'$$, 'check');
 select pg_temp.rechaza($$insert into horarios (dia_semana, jornada, hora_inicio, hora_fin) values ('feriado', 'noche', '18:00', '22:00')$$, 'check');
+
+-- -----------------------------------------------------------------------------
+-- Sesiones que vencen y bloqueo por fuerza bruta (supabase/seguridad.sql)
+-- -----------------------------------------------------------------------------
+do $$ begin
+  if (select count(*) from sesiones_admin where expira > now() + interval '10 minutes' or expira < now() + interval '9 minutes') > 0 then
+    raise exception 'La sesión no vence a los 10 minutos';
+  end if;
+end $$;
+
+-- Una sesión vencida ya no sirve, aunque el navegador tenga el token
+select set_config('request.headers', json_build_object('x-admin-token', (select token from sesiones_admin limit 1))::text, false);
+update sesiones_admin set expira = now() - interval '1 second';
+do $$ begin
+  if public.verificar_admin() then raise exception 'Una sesión vencida sigue funcionando'; end if;
+end $$;
+
+-- Cerrar sesión invalida el token
+set role anon;
+select set_config('request.headers', json_build_object('x-admin-token', public.iniciar_sesion('clave-solo-para-ci') ->> 'token')::text, false);
+do $$ begin
+  if not public.verificar_admin() then raise exception 'El token nuevo no funciona'; end if;
+  perform public.cerrar_sesion();
+  if public.verificar_admin() then raise exception 'El token sigue sirviendo después de cerrar sesión'; end if;
+end $$;
+
+-- Cinco contraseñas incorrectas seguidas bloquean el acceso, incluso con la contraseña correcta
+do $$
+declare bloqueado boolean := false;
+begin
+  for i in 1..5 loop perform public.iniciar_sesion('mala-' || i); end loop;
+  begin
+    perform public.iniciar_sesion('clave-solo-para-ci');
+  exception when others then bloqueado := sqlerrm = 'BLOQUEADO';
+  end;
+  if not bloqueado then raise exception 'No se bloqueó el acceso después de 5 intentos fallidos'; end if;
+end $$;
+reset role;
 
 select 'Todas las pruebas de base de datos pasaron' as resultado;

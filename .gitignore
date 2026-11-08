@@ -6,6 +6,7 @@ js/config.js
 
 # Vercel
 .vercel/
+/publicar/
 
 # Sistema y editores
 .DS_Store
@@ -14,6 +15,7 @@ desktop.ini
 .vscode/
 .idea/
 node_modules/
+__pycache__/
 
 # El documento original ya está copiado en docs/Documento-Proyecto.pdf
 /documento_30_paginas.pdf
