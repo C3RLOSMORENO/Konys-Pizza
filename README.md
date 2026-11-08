@@ -6,7 +6,7 @@ La carta y el horario son los reales de la sede El Prado. Los precios salen de D
 
 Hecha con HTML, CSS y JavaScript, con Supabase como base de datos y desplegada en Vercel.
 
-- App: _pendiente_
+- App: https://konys-pizza-tau.vercel.app
 - Video: _pendiente_
 
 ## Correrla en local
