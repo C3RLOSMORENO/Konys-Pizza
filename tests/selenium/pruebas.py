@@ -22,6 +22,7 @@ import http.server
 import json
 import os
 import platform
+import re
 import socketserver
 import sys
 import threading
@@ -47,14 +48,36 @@ CLAVE_ADMIN = "konys2026"
 # =============================================================================
 # Servidor estático (igual que Vercel con cleanUrls), forzado a modo demo
 # =============================================================================
+def _reglas_vercel():
+    try:
+        conf = json.loads((RAIZ / "vercel.json").read_text(encoding="utf-8"))
+        return [(r["source"], r["headers"]) for r in conf.get("headers", [])]
+    except Exception:  # noqa: BLE001
+        return []
+
+
 class Servidor(http.server.SimpleHTTPRequestHandler):
     no_encontrados = []
+    reglas = _reglas_vercel()
+
+    def end_headers(self):
+        # Mismos encabezados de seguridad que pone Vercel en producción (CSP, X-Frame-Options…)
+        ruta = self.path.split("?")[0]
+        for fuente, encabezados in self.reglas:
+            if re.fullmatch(fuente, ruta):
+                for h in encabezados:
+                    self.send_header(h["key"], h["value"])
+        super().end_headers()
 
     def __init__(self, *a, **kw):
         super().__init__(*a, directory=str(RAIZ), **kw)
 
     def translate_path(self, path):
         p = path.split("?")[0].split("#")[0]
+        # Igual que la carpeta publicar/ de Vercel: solo las páginas, css, js e imágenes
+        publico = p in ("/", "/index.html", "/admin", "/admin.html") or             re.fullmatch(r"/css/[\w.-]+\.css|/js/[\w.-]+\.js|/img/[\w.-]+\.(jpe?g|png|webp|svg)", p)
+        if not publico or p == "/js/config.example.js":
+            return str(RAIZ / "__no_publicado__")
         if p == "/admin":
             path = "/admin.html"
         elif p == "/js/config.js":
@@ -254,7 +277,8 @@ def recoger_consola():
     try:
         for entrada in d().get_log("browser"):
             msg = entrada.get("message", "")
-            if entrada.get("level") == "SEVERE" and "fonts.g" not in msg and "favicon" not in msg:
+            # El script de cdnjs lo inyecta a propósito SEG-04 para comprobar que la CSP lo bloquea
+            if entrada.get("level") == "SEVERE" and "fonts.g" not in msg and "favicon" not in msg and "cdnjs.cloudflare.com" not in msg:
                 ERRORES_CONSOLA.append({"pagina": d().current_url, "mensaje": msg})
     except Exception:  # noqa: BLE001
         pass
@@ -965,6 +989,88 @@ def adm_recarga():
     return "sigue dentro del panel tras recargar"
 
 
+CLAVES_PROHIBIDAS = [CLAVE_ADMIN, "admin_hash'", "service_role", "sb_secret_", "x-admin-clave"]
+
+
+@caso("SEG-01", "Seguridad", "El código que recibe el navegador no tiene contraseñas ni claves secretas", "RNF-05")
+def seg_codigo_fuente():
+    archivos = ["/", "/admin", "/css/styles.css", "/js/config.js", "/js/validacion.js", "/js/supabase.js", "/js/cliente.js", "/js/admin.js"]
+    hallados = []
+    for a in archivos:
+        cuerpo = urllib.request.urlopen(URL + a, timeout=5).read().decode("utf-8", "replace")
+        for clave in CLAVES_PROHIBIDAS:
+            if clave in cuerpo:
+                hallados.append(f"«{clave}» en {a}")
+        if re.search(r"eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.", cuerpo):
+            hallados.append(f"un token JWT en {a}")
+    assert not hallados, "; ".join(hallados)
+    return f"{len(archivos)} archivos revisados: sin contraseñas, hashes ni claves de servicio"
+
+
+@caso("SEG-02", "Seguridad", "Con la sesión abierta, el navegador no guarda la contraseña", "RNF-05")
+def seg_almacenamiento():
+    datos = js("""return {
+      local: JSON.stringify(Object.assign({}, localStorage)),
+      sesion: JSON.stringify(Object.assign({}, sessionStorage)),
+      cookies: document.cookie,
+      dom: document.documentElement.outerHTML,
+      campo: document.querySelector('#clave').value};""")
+    donde = [k for k in ("local", "sesion", "cookies", "dom", "campo") if CLAVE_ADMIN in datos[k]]
+    assert not donde, f"la contraseña aparece en: {donde}"
+    ses = json.loads(js("return sessionStorage.getItem('konys_admin_sesion')") or "{}")
+    assert set(ses) == {"token", "expira"}, f"la sesión guarda otros datos: {list(ses)}"
+    assert re.fullmatch(r"[0-9a-f-]{36}", ses["token"]), "el token no es un identificador aleatorio"
+    return "solo hay un token aleatorio con su hora de vencimiento"
+
+
+@caso("SEG-03", "Seguridad", "La sesión dura 10 minutos y se ve la cuenta regresiva", "RNF-05")
+def seg_duracion():
+    seg = js("return Konys.segundosSesionAdmin()")
+    assert 540 <= seg <= 600, f"a la sesión le quedan {seg} s (se esperaban 10 minutos)"
+    cuenta = esperar_que(lambda: texto("#sesion-restante"), mensaje="no se muestra el tiempo restante")
+    assert cuenta.startswith("Sesión: 9:") or cuenta.startswith("Sesión: 10:"), f"indicador: {cuenta}"
+    return f"quedan {seg} s; el panel muestra «{cuenta}»"
+
+
+@caso("SEG-04", "Seguridad", "Encabezados de seguridad (CSP, anti-iframe, sin caché en el admin)", "RNF")
+def seg_encabezados():
+    h = urllib.request.urlopen(URL + "/admin", timeout=5).headers
+    csp = h.get("Content-Security-Policy", "")
+    faltan = [x for x in ["script-src 'self'", "frame-ancestors 'none'", "object-src 'none'"] if x not in csp]
+    assert not faltan, f"a la CSP le falta: {faltan}"
+    assert h.get("X-Frame-Options") == "DENY", "falta X-Frame-Options: DENY"
+    assert h.get("X-Content-Type-Options") == "nosniff", "falta X-Content-Type-Options"
+    assert "no-store" in (h.get("Cache-Control") or ""), "el admin se puede guardar en caché"
+    bloqueado = js("""return new Promise(r => {
+      document.addEventListener('securitypolicyviolation', e => r(e.violatedDirective.indexOf('script-src') === 0), {once: true});
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js';
+      s.onload = () => r(false);
+      document.head.appendChild(s);
+      setTimeout(() => r(false), 4000);
+    })""")
+    assert bloqueado, "la página dejó cargar un script de otro sitio"
+    return "CSP, X-Frame-Options, nosniff, no-store; un script externo inyectado queda bloqueado"
+
+
+@caso("SEG-09", "Seguridad", "Los archivos internos del proyecto no se pueden abrir desde el navegador", "RNF")
+def seg_archivos_internos():
+    internos = ["/README.md", "/package.json", "/vercel.json", "/.env", "/.env.example", "/supabase/esquema.sql",
+                "/supabase/seguridad.sql", "/tests/e2e.js", "/tests/db-pruebas.sql", "/scripts/generar-config.js",
+                "/js/config.example.js", "/.git/config", "/docs/Documento-Proyecto.pdf", "/img/CREDITOS.md"]
+    visibles = []
+    for ruta in internos:
+        try:
+            urllib.request.urlopen(URL + ruta, timeout=5)
+            visibles.append(ruta)
+        except urllib.error.HTTPError as e:
+            if e.code != 404:
+                visibles.append(f"{ruta} ({e.code})")
+    Servidor.no_encontrados.clear()
+    assert not visibles, "se pueden abrir: " + ", ".join(visibles)
+    return f"{len(internos)} archivos internos responden 404 (README, .sql, pruebas, .env, .git…)"
+
+
 @caso("ADM-06", "Admin", "Lista de reservas (incluye las hechas desde el sitio)", "RF-12")
 def adm_reservas():
     filas = contar("#tabla-reservas tbody tr")
@@ -1390,6 +1496,82 @@ def adm_salir():
     return "sesión cerrada"
 
 
+def entrar(clave=CLAVE_ADMIN):
+    ir("/admin")
+    esperar("#clave")
+    escribir("#clave", clave)
+    clic("#btn-ingresar")
+
+
+@caso("SEG-05", "Seguridad", "Al cerrar sesión no quedan datos en la página y el token deja de servir", "RNF-05")
+def seg_cerrar_sesion():
+    entrar()
+    esperar("#tabla-reservas table")
+    viejo = js("return sessionStorage.getItem('konys_admin_sesion')")
+    clic(".lateral__pie [data-salir]")
+    html_pagina = js("return document.body.innerHTML")
+    restos = [x for x in ["Juan Pérez", "300 000 0001", "Prueba Selenium", "María José"] if x in html_pagina]
+    assert not restos, f"después de salir siguen en el HTML: {restos}"
+    assert js("return sessionStorage.getItem('konys_admin_sesion')") is None, "el token sigue guardado"
+    # Alguien que copió el token antes de salir intenta reutilizarlo
+    js("const v = JSON.parse(arguments[0]); v.expira = Date.now() + 3600e3; sessionStorage.setItem('konys_admin_sesion', JSON.stringify(v));", viejo)
+    d().refresh()
+    time.sleep(0.6)
+    assert not visible("#panel"), "un token de una sesión cerrada volvió a abrir el panel"
+    return "sin nombres ni teléfonos en el HTML; el token copiado ya no funciona"
+
+
+@caso("SEG-06", "Seguridad", "La sesión se cierra sola al vencer y avisa un minuto antes", "RNF-05")
+def seg_vencimiento():
+    entrar()
+    esperar("#tabla-reservas table")
+    # Se adelanta el reloj de la sesión: quedan 59 segundos
+    js("const v = JSON.parse(sessionStorage.getItem('konys_admin_sesion')); v.expira = Date.now() + 59e3; sessionStorage.setItem('konys_admin_sesion', JSON.stringify(v));")
+    aviso = esperar_que(lambda: visible("#toast") and "1 minuto" in texto("#toast") and texto("#toast"), 4, "no avisó que faltaba 1 minuto")
+    # Ahora vence
+    js("const v = JSON.parse(sessionStorage.getItem('konys_admin_sesion')); v.expira = Date.now() + 1500; sessionStorage.setItem('konys_admin_sesion', JSON.stringify(v));")
+    esperar_que(lambda: visible("#acceso") and not visible("#panel"), 5, "el panel siguió abierto después de vencer")
+    msg = texto("#e-clave")
+    assert "expiró" in msg, f"no explica que la sesión expiró: «{msg}»"
+    captura("Seguridad — sesión vencida", "sesion-vencida", completa=False)
+    return f"aviso «{aviso}»; al vencer: «{msg}»"
+
+
+@caso("SEG-07", "Seguridad", "Cambiar la hora de vencimiento en el navegador no alarga la sesión", "RNF-05")
+def seg_manipular_reloj():
+    entrar()
+    esperar("#tabla-reservas table")
+    # El "servidor" (la base de datos) vence la sesión; el atacante pone 1 hora más en el navegador
+    js("""const v = JSON.parse(sessionStorage.getItem('konys_admin_sesion'));
+      const s = JSON.parse(localStorage.getItem('konys_demo_sesiones')).map(x => x.token === v.token ? Object.assign(x, {expira: Date.now() - 1000}) : x);
+      localStorage.setItem('konys_demo_sesiones', JSON.stringify(s));
+      v.expira = Date.now() + 3600e3; sessionStorage.setItem('konys_admin_sesion', JSON.stringify(v));""")
+    r = js("return (async () => { try { await Konys.datos.listarReservas(); return 'ACEPTADA'; } catch (e) { return e.codigo; } })()")
+    assert r == "NO_AUTORIZADO", f"con la sesión vencida se pudieron leer las reservas: {r}"
+    clic('[data-seccion="reservas"]')
+    esperar_que(lambda: visible("#acceso") and not visible("#panel"), 5, "con la hora alterada el panel siguió abierto")
+    return "la base de datos rechaza el token vencido aunque el navegador diga lo contrario"
+
+
+@caso("SEG-08", "Seguridad", "Fuerza bruta: 5 contraseñas incorrectas bloquean el acceso 10 minutos", "RNF-05")
+def seg_fuerza_bruta():
+    js("localStorage.removeItem('konys_demo_intentos'); sessionStorage.clear();")
+    ir("/admin")
+    esperar("#clave")
+    for i in range(5):
+        escribir("#clave", f"incorrecta{i}")
+        clic("#btn-ingresar")
+        esperar_que(lambda: visible("#e-clave"), mensaje="no respondió al intento fallido")
+        time.sleep(0.2)
+    escribir("#clave", CLAVE_ADMIN)
+    clic("#btn-ingresar")
+    msg = esperar_que(lambda: "intentos" in texto("#e-clave") and texto("#e-clave"), mensaje="no se bloqueó después de 5 fallos")
+    assert not visible("#panel"), "entró al panel estando bloqueado"
+    captura("Seguridad — acceso bloqueado por intentos fallidos", "bloqueo-fuerza-bruta", completa=False)
+    js("localStorage.removeItem('konys_demo_intentos')")
+    return f"al sexto intento, incluso con la clave correcta: «{msg}»"
+
+
 @caso("GEN-01", "General", "Sin errores de JavaScript en consola", "RNF")
 def gen_consola():
     recoger_consola()
@@ -1403,12 +1585,14 @@ ORDEN = [cli_carga, cli_menu, cli_mesas, cli_filtro_zona, cli_carta, cli_filtro_
          val_personas_teclado, val_personas_envio, val_nombre, val_telefono, val_blur, val_reserva_valida, val_api_reserva,
          res_movil, res_menu, res_modal, res_tablet, res_tactil,
          cal_a11y_inicio, cal_a11y_admin, cal_seo, cal_enlaces_internos, cal_enlaces_externos, cal_rendimiento,
-         adm_sin_sesion, adm_clave_vacia, adm_clave_mala, adm_login, adm_recarga, adm_reservas, adm_xss,
+         adm_sin_sesion, adm_clave_vacia, adm_clave_mala, adm_login, adm_recarga,
+         seg_codigo_fuente, seg_almacenamiento, seg_duracion, seg_encabezados, seg_archivos_internos, adm_reservas, adm_xss,
          adm_filtros, adm_estado_reserva, adm_mesas, adm_mesa_validacion, adm_mesa_nueva, adm_mesa_editar,
          adm_mesa_desactivar, adm_mesa_filtro, adm_mesa_borrar, val_admin_mesa, val_admin_plato, val_admin_horario, val_api_admin,
          adm_horarios, adm_horario_editar,
          adm_horario_agregar, adm_horario_borrar, adm_plato_ocultar, adm_plato_nuevo, adm_plato_borrar,
-         adm_plato_filtro, adm_hash, int_mesa, int_carta, int_horario, adm_movil, adm_salir, gen_consola]
+         adm_plato_filtro, adm_hash, int_mesa, int_carta, int_horario, adm_movil, adm_salir,
+         seg_cerrar_sesion, seg_vencimiento, seg_manipular_reloj, seg_fuerza_bruta, gen_consola]
 
 
 # =============================================================================

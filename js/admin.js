@@ -48,7 +48,7 @@
     tt = setTimeout(() => { t.hidden = true; }, 4000);
   }
   function errorGenerico(e) {
-    if (e.codigo === 'NO_AUTORIZADO') { toast('Tu sesión expiró. Ingresa de nuevo.', true); salir(); return; }
+    if (e.codigo === 'NO_AUTORIZADO') { salir('Tu sesión expiró o ya no es válida. Ingresa de nuevo.'); return; }
     toast(e.message || 'Ocurrió un error. Inténtalo de nuevo.', true);
   }
   function tabla(columnas, filas, vacio) {
@@ -108,40 +108,65 @@
   async function ingresar(ev) {
     ev.preventDefault();
     const clave = $('#clave').value;
-    // La clave viaja en un encabezado HTTP, que no admite tildes ni ñ
     const rc = V.clave(clave);
     errorCampo('clave', rc.error);
     if (rc.error) { $('#clave').focus(); return; }
     const btn = $('#btn-ingresar');
     btn.disabled = true;
     try {
-      const ok = await D.verificarAdmin(clave);
+      const ok = await D.iniciarSesion(clave);
       if (!ok) {
-        K.cerrarSesionAdmin();
         errorCampo('clave', 'Contraseña incorrecta. Inténtalo de nuevo.');
         $('#clave').select();
         return;
       }
+      $('#clave').value = '';  // la contraseña no se queda en la página
       mostrarPanel();
     } catch (e) {
       K.cerrarSesionAdmin();
       errorCampo('clave', e.message || 'No pudimos verificar la contraseña.');
+      if (e.codigo === 'BLOQUEADO') $('#clave').value = '';
     } finally {
       btn.disabled = false;
     }
   }
 
-  function salir() {
-    K.cerrarSesionAdmin();
+  /** Cierra la sesión y borra de la página todos los datos del panel (reservas, teléfonos…) */
+  function salir(motivo) {
+    D.cerrarSesion();
+    clearInterval(estado.reloj);
     $('#panel').hidden = true;
     $('#acceso').hidden = false;
+    ['#tabla-reservas', '#tabla-mesas', '#tabla-horarios', '#tabla-platos', '#conteo-reservas', '#conteo-mesas', '#sesion-restante']
+      .forEach(sel => { $(sel).innerHTML = ''; });
+    $('#f-mesa').innerHTML = '<option value="">Todas las mesas</option>';
+    cerrarModales();
+    ['#form-mesa', '#form-plato', '#form-filtros'].forEach(sel => $(sel).reset());
+    Object.assign(estado, { mesas: [], horarios: [], platos: [], horariosCambiados: {}, editandoMesa: null, editandoPlato: null, avisoSesion: false });
     $('#clave').value = '';
+    errorCampo('clave', typeof motivo === 'string' ? motivo : '');
     $('#clave').focus();
+  }
+
+  /** Cuenta regresiva de la sesión: avisa a 1 minuto y cierra al llegar a 0 (la base de datos también la vence) */
+  function vigilarSesion() {
+    clearInterval(estado.reloj);
+    estado.avisoSesion = false;
+    const tic = () => {
+      if ($('#panel').hidden) return;
+      const seg = K.segundosSesionAdmin();
+      if (seg <= 0) { salir('Tu sesión expiró después de ' + K.DURACION_SESION_MIN + ' minutos. Ingresa de nuevo.'); return; }
+      $('#sesion-restante').textContent = 'Sesión: ' + Math.floor(seg / 60) + ':' + String(seg % 60).padStart(2, '0');
+      if (seg <= 60 && !estado.avisoSesion) { estado.avisoSesion = true; toast('Tu sesión vence en 1 minuto. Guarda tus cambios.', true); }
+    };
+    tic();
+    estado.reloj = setInterval(tic, 1000);
   }
 
   async function mostrarPanel() {
     $('#acceso').hidden = true;
     $('#panel').hidden = false;
+    vigilarSesion();
     try {
       const r = await Promise.all([D.listarMesas(), D.listarHorarios(), D.listarPlatos()]);
       estado.mesas = r[0]; estado.horarios = r[1]; estado.platos = r[2];
@@ -442,7 +467,7 @@
   // Eventos
   // ---------------------------------------------------------------------------
   $('#form-acceso').addEventListener('submit', ingresar);
-  document.querySelectorAll('[data-salir]').forEach(b => b.addEventListener('click', salir));
+  document.querySelectorAll('[data-salir]').forEach(b => b.addEventListener('click', () => salir()));
   window.addEventListener('hashchange', navegar);
 
   $('#btn-nueva-mesa').addEventListener('click', () => abrirMesa(null));
@@ -520,7 +545,8 @@
   // Inicio
   if (K.modo === 'demo') $('#banner-demo').hidden = false;
   if (K.haySesionAdmin()) {
-    D.verificarAdmin(K.claveSesionAdmin())
+    // Al recargar se pregunta a la base de datos si el token sigue vigente
+    D.verificarAdmin()
       .then(ok => { if (ok) mostrarPanel(); else { K.cerrarSesionAdmin(); $('#clave').focus(); } })
       .catch(() => K.cerrarSesionAdmin());
   } else {

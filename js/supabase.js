@@ -13,12 +13,41 @@
   if (URL_BASE && !/^https?:\/\//.test(URL_BASE)) URL_BASE = 'https://' + URL_BASE;
   const ANON_KEY = String(CONFIG.SUPABASE_ANON_KEY || '').trim();
   const MODO = URL_BASE && ANON_KEY ? 'supabase' : 'demo';
-  const CLAVE_SESION = 'konys_admin_clave';
+
+  // ---------------------------------------------------------------------------
+  // Sesión del administrador
+  // El navegador NUNCA guarda la contraseña: solo un token aleatorio que entrega la
+  // base de datos al iniciar sesión y que vence a los 10 minutos. La base de datos
+  // vuelve a revisar el vencimiento en cada petición, así que cambiar la hora en el
+  // navegador no alarga la sesión.
+  // ---------------------------------------------------------------------------
+  const CLAVE_SESION = 'konys_admin_sesion';
+  const DURACION_SESION_MIN = 10;
+  const MAX_INTENTOS = 5;          // intentos fallidos permitidos…
+  const VENTANA_INTENTOS_MIN = 10; // …en esta ventana; después se bloquea el acceso
 
   // sessionStorage puede fallar si el navegador bloquea el almacenamiento: nunca debe romper la app
-  function leerSesion() { try { return sessionStorage.getItem(CLAVE_SESION); } catch (e) { return null; } }
-  function guardarSesion(v) { try { sessionStorage.setItem(CLAVE_SESION, v); } catch (e) { /* sin almacenamiento */ } }
-  function borrarSesion() { try { sessionStorage.removeItem(CLAVE_SESION); } catch (e) { /* sin almacenamiento */ } }
+  function leerSesion() {
+    try {
+      const v = JSON.parse(sessionStorage.getItem(CLAVE_SESION));
+      return v && typeof v.token === 'string' && typeof v.expira === 'number' ? v : null;
+    } catch (e) { return null; }
+  }
+  function guardarSesion(v) { try { sessionStorage.setItem(CLAVE_SESION, JSON.stringify(v)); } catch (e) { /* sin almacenamiento */ } }
+  function borrarSesion() {
+    try {
+      sessionStorage.removeItem(CLAVE_SESION);
+      sessionStorage.removeItem('konys_admin_clave'); // versiones anteriores guardaban aquí la contraseña
+    } catch (e) { /* sin almacenamiento */ }
+  }
+  try { sessionStorage.removeItem('konys_admin_clave'); } catch (e) { /* sin almacenamiento */ }
+  /** Token de la sesión si no ha vencido; si venció lo borra */
+  function tokenVigente() {
+    const v = leerSesion();
+    if (!v) return null;
+    if (v.expira <= Date.now()) { borrarSesion(); return null; }
+    return v.token;
+  }
 
   // ---------------------------------------------------------------------------
   // Utilidades de fecha y hora (siempre en hora local del navegador)
@@ -99,6 +128,7 @@
     if (msg.indexOf('CAPACIDAD_SUPERADA') >= 0) return errorApp('CAPACIDAD_SUPERADA', 'Se superó la capacidad de la mesa.');
     if (msg.indexOf('MESA_INACTIVA') >= 0) return errorApp('MESA_INACTIVA', 'La mesa no está disponible.');
     if (msg.indexOf('FECHA_PASADA') >= 0) return errorApp('FECHA_PASADA', 'La fecha ya pasó.');
+    if (msg.indexOf('BLOQUEADO') >= 0) return errorApp('BLOQUEADO', 'Demasiados intentos fallidos. Espera ' + VENTANA_INTENTOS_MIN + ' minutos e inténtalo de nuevo.');
     if (msg.indexOf('FECHA_FUERA_DE_RANGO') >= 0) return errorApp('FECHA_FUERA_DE_RANGO', 'Solo se puede reservar hasta 30 días adelante.');
     if (msg.indexOf('FUERA_DE_HORARIO') >= 0) return errorApp('FUERA_DE_HORARIO', 'Ese horario no está dentro de la atención del restaurante.');
     if (e && e.code === '23505' && /nombre_unico/.test(msg)) return errorApp('DUPLICADO', 'Ya existe un registro con ese nombre.');
@@ -128,8 +158,8 @@
     // La publishable key nueva ("sb_publishable_…") solo va en apikey.
     if (ANON_KEY.indexOf('eyJ') === 0) headers.Authorization = 'Bearer ' + ANON_KEY;
     if (opciones.prefer) headers.Prefer = opciones.prefer;
-    const clave = leerSesion();
-    if (clave) headers['x-admin-clave'] = clave;
+    const token = tokenVigente();
+    if (token) headers['x-admin-token'] = token;
 
     const pedir = () => fetch(URL_BASE + '/rest/v1/' + ruta, {
       method: opciones.method || 'GET',
@@ -210,9 +240,19 @@
     },
     actualizarReserva: (id, c) => rest('reservas?id=eq.' + enc(id), { method: 'PATCH', body: c, prefer: 'return=minimal' }),
 
-    verificarAdmin: (clave) => {
-      guardarSesion(clave);
-      return rest('rpc/verificar_admin', { method: 'POST', body: {} });
+    /** Envía la contraseña una sola vez; la base de datos devuelve un token que vence a los 10 minutos */
+    async iniciarSesion(clave) {
+      borrarSesion();
+      const r = await rest('rpc/iniciar_sesion', { method: 'POST', body: { p_clave: clave } });
+      if (!r || !r.token) return false;
+      // El vencimiento se cuenta con los segundos que informa el servidor (no depende del reloj del equipo)
+      guardarSesion({ token: r.token, expira: Date.now() + Number(r.segundos) * 1000 });
+      return true;
+    },
+    verificarAdmin: () => (tokenVigente() ? rest('rpc/verificar_admin', { method: 'POST', body: {} }) : Promise.resolve(false)),
+    async cerrarSesion() {
+      try { if (tokenVigente()) await rest('rpc/cerrar_sesion', { method: 'POST', body: {} }); } catch (e) { /* igual se borra en el navegador */ }
+      borrarSesion();
     }
   };
 
@@ -220,7 +260,10 @@
   // Backend 2: modo demostración (localStorage), con los mismos datos iniciales que esquema.sql
   // ---------------------------------------------------------------------------
   const CLAVE_DEMO = 'konys_demo_v2';
-  const CLAVE_ADMIN_DEMO = 'konys2026';
+  // Solo el hash SHA-256 de la contraseña de prueba (la contraseña está en el README, no en el código)
+  const HASH_ADMIN_DEMO = '5288c1614b2ad0a9d18d853308c9b0c452327183d4bac2ba1cc56691016d535b';
+  const CLAVE_SESIONES_DEMO = 'konys_demo_sesiones';  // hace las veces de la tabla sesiones_admin
+  const CLAVE_INTENTOS_DEMO = 'konys_demo_intentos';  // hace las veces de la tabla intentos_acceso
 
   function semilla() {
     const mesas = [
@@ -291,8 +334,18 @@
   const espera = (v) => new Promise(res => setTimeout(() => res(v), 150));
   const copia = (v) => JSON.parse(JSON.stringify(v));
 
+  function leerLS(k, porDefecto) { try { return JSON.parse(localStorage.getItem(k)) || porDefecto; } catch (e) { return porDefecto; } }
+  function guardarLS(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* sin almacenamiento */ } }
+  async function sha256(texto) {
+    if (!(window.crypto && crypto.subtle)) throw errorApp('CONFIG', 'Abre la app desde localhost o desde https para poder iniciar sesión.');
+    const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(texto));
+    return Array.from(new Uint8Array(b)).map(x => x.toString(16).padStart(2, '0')).join('');
+  }
+  /** Igual que es_admin() en la base de datos: el token debe existir y no haber vencido */
   function exigirAdmin() {
-    if (leerSesion() !== CLAVE_ADMIN_DEMO) throw errorApp('NO_AUTORIZADO', 'No autorizado.');
+    const t = tokenVigente();
+    const ok = t && leerLS(CLAVE_SESIONES_DEMO, []).some(s => s.token === t && s.expira > Date.now());
+    if (!ok) throw errorApp('NO_AUTORIZADO', 'Tu sesión expiró. Ingresa de nuevo.');
   }
   // Igual que los índices únicos mesas_nombre_unico y platos_nombre_unico de la base de datos
   function nombreLibre(lista, nombre, idPropio) {
@@ -385,9 +438,31 @@
     },
     async actualizarReserva(id, c) { exigirAdmin(); const d = leer(); actualizarEn(d.reservas, id, c); guardar(d); return espera(null); },
 
-    async verificarAdmin(clave) {
-      guardarSesion(clave);
-      return espera(clave === CLAVE_ADMIN_DEMO);
+    async iniciarSesion(clave) {
+      borrarSesion();
+      const ahora = Date.now();
+      const intentos = leerLS(CLAVE_INTENTOS_DEMO, []).filter(t => t > ahora - VENTANA_INTENTOS_MIN * 60000);
+      if (intentos.length >= MAX_INTENTOS) {
+        throw errorApp('BLOQUEADO', 'Demasiados intentos fallidos. Espera ' + VENTANA_INTENTOS_MIN + ' minutos e inténtalo de nuevo.');
+      }
+      if (typeof clave !== 'string' || await sha256(clave) !== HASH_ADMIN_DEMO) {
+        guardarLS(CLAVE_INTENTOS_DEMO, intentos.concat([ahora]));
+        return espera(false);
+      }
+      guardarLS(CLAVE_INTENTOS_DEMO, []);
+      const s = { token: uuid(), expira: ahora + DURACION_SESION_MIN * 60000 };
+      guardarLS(CLAVE_SESIONES_DEMO, leerLS(CLAVE_SESIONES_DEMO, []).filter(x => x.expira > ahora).concat([s]));
+      guardarSesion(s);
+      return espera(true);
+    },
+    async verificarAdmin() {
+      try { exigirAdmin(); return espera(true); } catch (e) { return espera(false); }
+    },
+    async cerrarSesion() {
+      const v = leerSesion();
+      if (v) guardarLS(CLAVE_SESIONES_DEMO, leerLS(CLAVE_SESIONES_DEMO, []).filter(x => x.token !== v.token));
+      borrarSesion();
+      return espera(null);
     },
 
     reiniciar() { localStorage.removeItem(CLAVE_DEMO); }
@@ -420,8 +495,10 @@
     modo: MODO,
     datos: api,
     cerrarSesionAdmin: borrarSesion,
-    claveSesionAdmin: leerSesion,
-    haySesionAdmin: () => !!leerSesion(),
+    haySesionAdmin: () => !!tokenVigente(),
+    /** Segundos que le quedan a la sesión (0 si no hay o ya venció) */
+    segundosSesionAdmin: () => { const v = leerSesion(); return v ? Math.max(0, Math.ceil((v.expira - Date.now()) / 1000)) : 0; },
+    DURACION_SESION_MIN: DURACION_SESION_MIN,
     validar: V,
     util: {
       fechaISO, parseFecha, aMinutos, aHora, hora12, fechaLarga, fechaCorta, diaSemana, precioCOP, generarSlots,

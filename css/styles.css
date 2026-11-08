@@ -388,6 +388,7 @@ button, input, select { font: inherit; color: inherit; }
 .item-menu:hover { color: var(--texto-invertido); background: rgba(255, 255, 255, .06); }
 .item-menu[aria-current="page"] { background: var(--fondo-acento); color: var(--texto-sobre-acento); font-weight: 600; }
 .lateral__pie { display: none; }
+.sesion-restante { margin-left: auto; margin-right: var(--e-8); font-size: 12px; font-weight: 600; color: var(--texto-invertido); opacity: .8; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 .admin__contenido { flex: 1; padding: var(--e-24) var(--margen) var(--e-48); min-width: 0; }
 .admin__cabecera { display: flex; flex-direction: column; gap: var(--e-16); margin-bottom: var(--e-24); }
