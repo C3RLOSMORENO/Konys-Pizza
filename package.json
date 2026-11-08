@@ -5,7 +5,8 @@
   "description": "Sistema de reservas de mesas para Konys Pizza (Bucaramanga)",
   "scripts": {
     "test": "node tests/e2e.js",
-    "config": "node scripts/generar-config.js"
+    "config": "node scripts/generar-config.js",
+    "test:selenium": "python tests/selenium/pruebas.py"
   },
   "devDependencies": {
     "playwright": "1.48.2"

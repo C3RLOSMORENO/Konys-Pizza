@@ -48,6 +48,17 @@ npx playwright install chromium
 npm test
 ```
 
+### Pruebas con Selenium e informe
+
+```bash
+pip install -r tests/selenium/requirements.txt
+npm run test:selenium            # o: python tests/selenium/pruebas.py
+```
+
+Recorre toda la web en Chrome con Selenium: el sitio del cliente (mesas, carta, calendario, reserva, validaciones y doble reserva), el panel admin (acceso, reservas, mesas, horarios y carta), la vista en móvil y tablet, la accesibilidad, el SEO, los enlaces, el rendimiento y que no se pueda inyectar HTML. Corre en modo demo, así que no toca Supabase.
+
+Al terminar deja en `informe-selenium/` el informe (`informe.html`, con capturas incluidas), los resultados en `resultados.json` y las capturas sueltas. Opciones: `--ver` muestra la ventana del navegador y `--externos` abre también los enlaces externos.
+
 GitHub Actions corre en cada pull request: revisa la sintaxis, monta el esquema en un Postgres para probar las reglas de seguridad y la doble reserva, y hace la prueba completa del cliente y del admin en Chromium.
 
 ## Estructura
