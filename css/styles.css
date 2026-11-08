@@ -151,6 +151,7 @@ button, input, select { font: inherit; color: inherit; }
   flex: none; padding: var(--e-8) var(--e-16); border-radius: var(--radio-full);
   border: 1px solid var(--borde-default); background: var(--fondo-superficie);
   font-size: 14px; line-height: 20px; font-weight: 600; cursor: pointer;
+  min-height: 44px; /* área táctil mínima recomendada en celulares */
 }
 .chip[aria-pressed="true"] { background: var(--fondo-primario); border-color: var(--fondo-primario); color: var(--texto-invertido); }
 

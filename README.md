@@ -17,7 +17,7 @@ Si no hay credenciales de Supabase, funciona en modo demo: guarda los datos en e
 
 Para conectarla a Supabase:
 
-1. En el SQL Editor de Supabase ejecutar `supabase/esquema.sql`. Si la base ya tenía el esquema con los datos de ejemplo viejos, ejecutar `supabase/datos-reales.sql`, que cambia la carta y el horario por los reales.
+1. En el SQL Editor de Supabase ejecutar `supabase/esquema.sql`. Si la base ya tenía el esquema con los datos de ejemplo viejos, ejecutar `supabase/datos-reales.sql`, que cambia la carta y el horario por los reales. Si la base se creó antes de que existieran las reglas de validación, ejecutar también `supabase/validaciones.sql`.
 2. Ahí mismo crear la clave del admin (no se guarda en ningún archivo del repo):
    ```sql
    insert into public.ajustes (clave, valor)
@@ -27,6 +27,14 @@ Para conectarla a Supabase:
 3. Copiar `.env.example` como `.env`, poner la Project URL y la anon key, y correr `npm run config`.
 
 `.env` y `js/config.js` están en el `.gitignore`, así que no se suben.
+
+## Validación de datos
+
+Cada campo se valida en tres niveles, con las mismas reglas:
+
+1. **Al escribir** (`js/validacion.js`): los campos numéricos (personas, capacidad, precio, duración) solo dejan escribir dígitos, así que no entran letras, `e`, puntos, comas ni signos. El nombre solo acepta letras, espacios y `' . -`, y el teléfono solo números, espacios y `+ ( ) -`. Si se intenta escribir o pegar otra cosa, aparece un aviso.
+2. **Al enviar o salir del campo**: cada valor se revisa completo, por ejemplo personas entre 1 y la capacidad de la mesa, teléfono de Colombia de 10 dígitos (celular 3xx o fijo 60x, con o sin +57), precio entre $100 y $1.000.000, URL de foto `https://`, duración de 15 en 15 minutos y nombres de mesa o plato sin repetir. El error aparece debajo del campo.
+3. **En la capa de datos y en la base de datos** (`supabase/validaciones.sql`): aunque alguien se salte la página y mande datos desde la consola o directo a la API de Supabase, la base rechaza cualquier dato mal formado, una reserva fuera del horario de atención o con más de 30 días de anticipación, y el HTML en nombres y descripciones.
 
 ## Vercel
 
@@ -39,6 +47,17 @@ npm install
 npx playwright install chromium
 npm test
 ```
+
+### Pruebas con Selenium e informe
+
+```bash
+pip install -r tests/selenium/requirements.txt
+npm run test:selenium            # o: python tests/selenium/pruebas.py
+```
+
+Recorre toda la web en Chrome con Selenium: el sitio del cliente (mesas, carta, calendario, reserva, validaciones y doble reserva), el panel admin (acceso, reservas, mesas, horarios y carta), la vista en móvil y tablet, la accesibilidad, el SEO, los enlaces, el rendimiento y que no se pueda inyectar HTML. Corre en modo demo, así que no toca Supabase.
+
+Al terminar deja en `informe-selenium/` el informe (`informe.html`, con capturas incluidas), los resultados en `resultados.json` y las capturas sueltas. Opciones: `--ver` muestra la ventana del navegador y `--externos` abre también los enlaces externos.
 
 GitHub Actions corre en cada pull request: revisa la sintaxis, monta el esquema en un Postgres para probar las reglas de seguridad y la doble reserva, y hace la prueba completa del cliente y del admin en Chromium.
 

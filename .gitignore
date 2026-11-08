@@ -20,3 +20,6 @@ node_modules/
 
 # Capturas que genera el CI
 /capturas/
+
+# Informe que generan las pruebas de Selenium
+/informe-selenium/

@@ -8,6 +8,7 @@
 
   const D = window.Konys.datos;
   const U = window.Konys.util;
+  const V = window.Konys.validar;
   const $ = (sel) => document.querySelector(sel);
 
   // Cuántos días hacia adelante se puede reservar
@@ -275,13 +276,14 @@
     $('#s-mesa').textContent = m ? m.nombre + ' · ' + U.ZONAS[m.zona] : '—';
     $('#s-fecha').textContent = estado.fecha ? U.fechaLarga(estado.fecha) : 'Elige una fecha';
     $('#s-hora').textContent = estado.slot ? U.hora12(estado.slot.inicio) + ' – ' + U.hora12(estado.slot.fin) : 'Elige un horario';
-    const n = parseInt($('#r-personas').value, 10);
+    const n = /^[0-9]+$/.test($('#r-personas').value) ? Number($('#r-personas').value) : 0;
     $('#s-personas').textContent = n > 0 ? n + (n === 1 ? ' persona' : ' personas') : '—';
     $('#btn-confirmar').disabled = !(estado.fecha && estado.slot);
   }
 
+  const CAMPOS = ['nombre', 'contacto', 'personas'];
   function limpiarErrores() {
-    ['nombre', 'personas'].forEach(c => {
+    CAMPOS.forEach(c => {
       $('#e-' + c).hidden = true;
       $('#r-' + c).removeAttribute('aria-invalid');
     });
@@ -291,20 +293,41 @@
     e.textContent = msg; e.hidden = false;
     const i = $('#r-' + campo);
     i.setAttribute('aria-invalid', 'true');
-    i.setAttribute('aria-describedby', 'e-' + campo);
+  }
+  function quitarError(campo) {
+    $('#e-' + campo).hidden = true;
+    $('#r-' + campo).removeAttribute('aria-invalid');
+  }
+
+  /** Regla de cada campo: devuelve { valor, error } (ver js/validacion.js) */
+  const REGLAS = {
+    nombre: () => V.nombrePersona($('#r-nombre').value),
+    contacto: () => V.telefono($('#r-contacto').value, true),
+    personas: () => {
+      const max = estado.mesa ? estado.mesa.capacidad : 30;
+      return V.entero($('#r-personas').value, 1, max, {
+        vacio: 'Indica cuántas personas vienen.',
+        formato: 'Escribe solo números enteros (sin letras, puntos ni signos).',
+        rango: 'Debe ser entre 1 y ' + max + ' personas para esta mesa.'
+      });
+    }
+  };
+  function validarCampo(c) {
+    const r = REGLAS[c]();
+    if (r.error) errorCampo(c, r.error); else quitarError(c);
+    return r;
   }
 
   /** Validación del formulario (RF-05) */
   function validar() {
-    limpiarErrores();
-    const nombre = $('#r-nombre').value.trim();
-    const personas = parseInt($('#r-personas').value, 10);
-    let ok = true;
-    if (nombre.length < 2) { errorCampo('nombre', 'Escribe tu nombre para la reserva.'); ok = false; }
-    if (!personas || personas < 1) { errorCampo('personas', 'Indica cuántas personas vienen.'); ok = false; }
-    else if (personas > estado.mesa.capacidad) { errorCampo('personas', 'Máximo ' + estado.mesa.capacidad + ' personas para esta mesa.'); ok = false; }
-    if (!ok) { const p = document.querySelector('#form-reserva [aria-invalid="true"]'); if (p) p.focus(); }
-    return ok ? { nombre: nombre, personas: personas, contacto: $('#r-contacto').value.trim() } : null;
+    const r = {};
+    CAMPOS.forEach(c => { r[c] = validarCampo(c); });
+    const ok = CAMPOS.every(c => !r[c].error);
+    if (!ok) { const p = document.querySelector('#form-reserva [aria-invalid="true"]'); if (p) p.focus(); return null; }
+    // Se muestran los datos ya normalizados (espacios de más, teléfono con formato)
+    $('#r-nombre').value = r.nombre.valor;
+    $('#r-contacto').value = r.contacto.valor || '';
+    return { nombre: r.nombre.valor, personas: r.personas.valor, contacto: r.contacto.valor };
   }
 
   async function confirmar(ev) {
@@ -343,6 +366,10 @@
         $('#alerta-slot').scrollIntoView({ behavior: 'smooth', block: 'center' });
       } else if (e.codigo === 'CAPACIDAD_SUPERADA') {
         errorCampo('personas', 'Máximo ' + estado.mesa.capacidad + ' personas para esta mesa.');
+      } else if (e.codigo === 'DATO_INVALIDO') {
+        $('#alerta-form').innerHTML = alerta('error', 'Revisa tus datos', e.message);
+      } else if (e.codigo === 'FECHA_PASADA' || e.codigo === 'FECHA_FUERA_DE_RANGO' || e.codigo === 'FUERA_DE_HORARIO') {
+        $('#alerta-form').innerHTML = alerta('error', 'Ese horario ya no se puede reservar', e.message + ' Elige otra fecha u hora.');
       } else if (e.codigo === 'MESA_INACTIVA') {
         $('#alerta-form').innerHTML = alerta('error', 'Esta mesa ya no está disponible', 'Cierra esta ventana y elige otra mesa.');
       } else {
@@ -456,12 +483,16 @@
     if (b && !b.disabled) elegirSlot(b);
   });
 
-  // Al corregir un campo se quita su mensaje de error
-  ['nombre', 'personas'].forEach(c => $('#r-' + c).addEventListener('input', () => {
-    $('#e-' + c).hidden = true;
-    $('#r-' + c).removeAttribute('aria-invalid');
-    actualizarResumen();
-  }));
+  // Al corregir un campo se quita su mensaje de error; al salir del campo se revisa
+  CAMPOS.forEach(c => {
+    const i = $('#r-' + c);
+    i.addEventListener('input', () => { quitarError(c); actualizarResumen(); });
+    i.addEventListener('blur', () => { if (i.value.trim()) validarCampo(c); });
+  });
+  // Bloquea al escribir o pegar lo que no corresponde a cada campo (letras en números, etc.)
+  V.filtrar($('#r-nombre'), 'nombrePersona', m => errorCampo('nombre', m));
+  V.filtrar($('#r-contacto'), 'telefono', m => errorCampo('contacto', m));
+  V.filtrar($('#r-personas'), 'digitos', m => errorCampo('personas', m));
   $('#form-reserva').addEventListener('submit', confirmar);
   $('#modal-cerrar').addEventListener('click', cerrarReserva);
   $('#modal-reserva').addEventListener('click', (e) => { if (e.target.id === 'modal-reserva') cerrarReserva(); });

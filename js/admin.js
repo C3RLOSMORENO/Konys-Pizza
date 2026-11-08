@@ -9,6 +9,7 @@
   const K = window.Konys;
   const D = K.datos;
   const U = K.util;
+  const V = K.validar;
   const $ = (sel) => document.querySelector(sel);
 
   const estado = {
@@ -63,16 +64,54 @@
     else { e.hidden = true; $('#' + id).removeAttribute('aria-invalid'); }
   }
 
+  // Reglas de cada campo de los formularios (ver js/validacion.js)
+  const REGLAS_MESA = {
+    'm-nombre': () => sinRepetir(V.nombreCosa($('#m-nombre').value, 40, 'de la mesa'), estado.mesas, estado.editandoMesa, 'Ya existe una mesa con ese nombre.'),
+    'm-capacidad': () => V.entero($('#m-capacidad').value, 1, 30, {
+      vacio: 'Escribe la capacidad de la mesa.', rango: 'La capacidad debe estar entre 1 y 30 personas.' }),
+    'm-foto': () => V.urlFoto($('#m-foto').value)
+  };
+  const REGLAS_PLATO = {
+    'p-nombre': () => sinRepetir(V.nombreCosa($('#p-nombre').value, 80, 'del plato'), estado.platos, estado.editandoPlato, 'Ya existe un plato con ese nombre.'),
+    'p-descripcion': () => V.texto($('#p-descripcion').value, 160, 'La descripción'),
+    'p-precio': () => V.entero($('#p-precio').value, 100, 1000000, {
+      vacio: 'Escribe el precio en pesos.', rango: 'El precio debe estar entre $100 y $1.000.000.' })
+  };
+  const CAMPOS_MESA = Object.keys(REGLAS_MESA);
+  const CAMPOS_PLATO = Object.keys(REGLAS_PLATO);
+
+  /** Revisa todos los campos de un formulario; si alguno falla muestra su error y devuelve null */
+  function validarCampos(reglas) {
+    const valores = {};
+    let primero = null;
+    Object.keys(reglas).forEach(id => {
+      const r = reglas[id]();
+      errorCampo(id, r.error);
+      if (r.error && !primero) primero = id;
+      valores[id] = r.valor;
+    });
+    if (primero) { $('#' + primero).focus(); return null; }
+    Object.keys(valores).forEach(id => { $('#' + id).value = valores[id] == null ? '' : valores[id]; });
+    return valores;
+  }
+  /** Los nombres de mesas y platos no se repiten (sin importar mayúsculas), igual que en la base de datos */
+  function sinRepetir(r, lista, propio, mensaje) {
+    if (r.error) return r;
+    const n = r.valor.toLowerCase();
+    if (lista.some(x => (!propio || x.id !== propio.id) && String(x.nombre).trim().toLowerCase() === n)) r.error = mensaje;
+    return r;
+  }
+
   // ---------------------------------------------------------------------------
   // RF-08: acceso con contraseña
   // ---------------------------------------------------------------------------
   async function ingresar(ev) {
     ev.preventDefault();
     const clave = $('#clave').value;
-    errorCampo('clave', '');
-    if (!clave) { errorCampo('clave', 'Escribe la contraseña.'); return; }
     // La clave viaja en un encabezado HTTP, que no admite tildes ni ñ
-    if (/[^\x20-\x7E]/.test(clave)) { errorCampo('clave', 'La contraseña no puede tener tildes ni ñ.'); return; }
+    const rc = V.clave(clave);
+    errorCampo('clave', rc.error);
+    if (rc.error) { $('#clave').focus(); return; }
     const btn = $('#btn-ingresar');
     btn.disabled = true;
     try {
@@ -154,25 +193,25 @@
     $('#m-capacidad').value = mesa ? mesa.capacidad : 4;
     $('#m-foto').value = mesa && mesa.foto_url ? mesa.foto_url : '';
     $('#m-activa').checked = mesa ? mesa.activa : true;
-    errorCampo('m-nombre', ''); errorCampo('m-capacidad', '');
+    CAMPOS_MESA.forEach(c => errorCampo(c, ''));
     abrirModal('#modal-mesa', '#m-nombre');
   }
 
   async function guardarMesa(ev) {
     ev.preventDefault();
-    const nombre = $('#m-nombre').value.trim();
-    const capacidad = parseInt($('#m-capacidad').value, 10);
-    errorCampo('m-nombre', nombre ? '' : 'Escribe el nombre o número de la mesa.');
-    errorCampo('m-capacidad', capacidad >= 1 && capacidad <= 30 ? '' : 'La capacidad debe estar entre 1 y 30 personas.');
-    if (!nombre || !(capacidad >= 1 && capacidad <= 30)) return;
-    const datos = { nombre: nombre, zona: $('#m-zona').value, capacidad: capacidad, foto_url: $('#m-foto').value.trim() || null, activa: $('#m-activa').checked };
+    const r = validarCampos(REGLAS_MESA);
+    if (!r) return;
+    const datos = { nombre: r['m-nombre'], zona: $('#m-zona').value, capacidad: r['m-capacidad'], foto_url: r['m-foto'], activa: $('#m-activa').checked };
     try {
       if (estado.editandoMesa) await D.actualizarMesa(estado.editandoMesa.id, datos);
       else await D.crearMesa(datos);
       cerrarModales();
       toast(estado.editandoMesa ? 'Mesa actualizada.' : 'Mesa registrada. Ya puede recibir reservas.');
       await recargarMesas();
-    } catch (e) { errorGenerico(e); }
+    } catch (e) {
+      if (e.codigo === 'DUPLICADO') errorCampo('m-nombre', 'Ya existe una mesa con ese nombre.');
+      else errorGenerico(e);
+    }
   }
 
   async function cambiarEstadoMesa(id, activa) {
@@ -215,11 +254,12 @@
         '<td>' + U.JORNADAS[h.jornada] + '</td>' +
         '<td><input type="time" data-campo="hora_inicio" value="' + hhmm(v.hora_inicio) + '" aria-label="Hora de inicio ' + U.DIAS_LEGIBLES[h.dia_semana] + ' ' + h.jornada + '"></td>' +
         '<td><input type="time" data-campo="hora_fin" value="' + hhmm(v.hora_fin) + '" aria-label="Hora de fin ' + U.DIAS_LEGIBLES[h.dia_semana] + ' ' + h.jornada + '"></td>' +
-        '<td><input type="number" min="15" max="240" step="15" data-campo="duracion_slot" value="' + v.duracion_slot + '" aria-label="Duración en minutos"></td>' +
+        '<td><input type="text" inputmode="numeric" maxlength="3" autocomplete="off" data-campo="duracion_slot" value="' + escapar(v.duracion_slot) + '" aria-label="Duración en minutos, ' + U.DIAS_LEGIBLES[h.dia_semana] + ' ' + h.jornada + '"></td>' +
         '<td>' + toggle('horario-activo', h.id, v.activo, 'Jornada activa') + '</td>' +
         '<td class="acciones">' + btnIcono('borrar-horario', 'borrar', 'Borrar jornada', h.id, true) + '</td></tr>';
     }), 'No hay horarios definidos. Agrega una jornada abajo.');
     $('#btn-guardar-horarios').disabled = !Object.keys(estado.horariosCambiados).length;
+    document.querySelectorAll('#tabla-horarios input[data-campo="duracion_slot"]').forEach(i => V.filtrar(i, 'digitos', m => toast(m, true)));
   }
 
   function marcarHorario(id, campo, valor) {
@@ -233,11 +273,13 @@
     const ids = Object.keys(estado.horariosCambiados);
     for (const id of ids) {
       const v = Object.assign({}, estado.horarios.find(h => h.id === id), estado.horariosCambiados[id]);
-      if (U.aMinutos(v.hora_fin) <= U.aMinutos(v.hora_inicio)) {
-        toast(U.DIAS_LEGIBLES[v.dia_semana] + ' (' + v.jornada + '): la hora de fin debe ser posterior a la de inicio.', true);
+      const err = V.registro.horario(v, false);
+      if (err) {
+        toast(U.DIAS_LEGIBLES[v.dia_semana] + ' (' + v.jornada + '): ' + err, true);
+        const f = document.querySelector('[data-horario="' + id + '"] input');
+        if (f) f.focus();
         return;
       }
-      if (!(v.duracion_slot >= 15 && v.duracion_slot <= 240)) { toast('La duración debe estar entre 15 y 240 minutos.', true); return; }
     }
     try {
       await Promise.all(ids.map(id => D.actualizarHorario(id, estado.horariosCambiados[id])));
@@ -261,9 +303,8 @@
       hora_inicio: $('#h-inicio').value, hora_fin: $('#h-fin').value,
       duracion_slot: Number($('#duracion-global').value), activo: true
     };
-    if (!h.hora_inicio || !h.hora_fin || U.aMinutos(h.hora_fin) <= U.aMinutos(h.hora_inicio)) {
-      toast('La hora de fin debe ser posterior a la de inicio.', true); return;
-    }
+    const err = V.registro.horario(h, false);
+    if (err) { toast(err, true); return; }
     if (estado.horarios.some(x => x.dia_semana === h.dia_semana && x.jornada === h.jornada)) {
       toast('Ese día ya tiene una jornada de ' + h.jornada + '. Edítala en la tabla.', true); return;
     }
@@ -360,25 +401,25 @@
     $('#p-descripcion').value = p ? (p.descripcion || '') : '';
     $('#p-precio').value = p ? p.precio : '';
     $('#p-disponible').checked = p ? p.disponible : true;
-    errorCampo('p-nombre', ''); errorCampo('p-precio', '');
+    CAMPOS_PLATO.forEach(c => errorCampo(c, ''));
     abrirModal('#modal-plato', '#p-nombre');
   }
 
   async function guardarPlato(ev) {
     ev.preventDefault();
-    const nombre = $('#p-nombre').value.trim();
-    const precio = parseInt($('#p-precio').value, 10);
-    errorCampo('p-nombre', nombre ? '' : 'Escribe el nombre del plato.');
-    errorCampo('p-precio', precio >= 0 ? '' : 'Escribe el precio en pesos (solo números).');
-    if (!nombre || !(precio >= 0)) return;
-    const datos = { nombre: nombre, categoria: $('#p-categoria').value, descripcion: $('#p-descripcion').value.trim() || null, precio: precio, disponible: $('#p-disponible').checked };
+    const r = validarCampos(REGLAS_PLATO);
+    if (!r) return;
+    const datos = { nombre: r['p-nombre'], categoria: $('#p-categoria').value, descripcion: r['p-descripcion'], precio: r['p-precio'], disponible: $('#p-disponible').checked };
     try {
       if (estado.editandoPlato) await D.actualizarPlato(estado.editandoPlato.id, datos);
       else await D.crearPlato(datos);
       cerrarModales();
       toast(estado.editandoPlato ? 'Plato actualizado.' : 'Plato agregado a la carta.');
       await recargarPlatos();
-    } catch (e) { errorGenerico(e); }
+    } catch (e) {
+      if (e.codigo === 'DUPLICADO') errorCampo('p-nombre', 'Ya existe un plato con ese nombre.');
+      else errorGenerico(e);
+    }
   }
 
   async function cambiarDisponible(id, disponible) {
@@ -412,6 +453,18 @@
   document.querySelectorAll('.modal').forEach(m => m.addEventListener('click', e => { if (e.target === m) cerrarModales(); }));
   document.addEventListener('keydown', e => { if (e.key === 'Escape') cerrarModales(); });
 
+  // Bloquea al escribir o pegar lo que no corresponde a cada campo, quita el error al corregir y revisa al salir
+  [[REGLAS_MESA, { 'm-nombre': 'nombreCosa', 'm-capacidad': 'digitos' }],
+   [REGLAS_PLATO, { 'p-nombre': 'nombreCosa', 'p-descripcion': 'texto', 'p-precio': 'digitos' }]].forEach(([reglas, filtros]) => {
+    Object.keys(reglas).forEach(id => {
+      const i = $('#' + id);
+      i.addEventListener('input', () => errorCampo(id, ''));
+      i.addEventListener('blur', () => { if (i.value.trim()) errorCampo(id, reglas[id]().error); });
+      if (filtros[id]) V.filtrar(i, filtros[id], m => errorCampo(id, m));
+    });
+  });
+  $('#clave').addEventListener('input', () => errorCampo('clave', ''));
+
   $('#filtro-mesas').addEventListener('click', e => {
     const b = e.target.closest('.chip'); if (!b) return;
     estado.zonaMesas = b.dataset.zona;
@@ -434,7 +487,9 @@
   $('#tabla-horarios').addEventListener('change', e => {
     const fila = e.target.closest('[data-horario]');
     if (!fila || !e.target.dataset.campo) return;
-    const valor = e.target.type === 'number' ? Number(e.target.value) : e.target.value;
+    const t = e.target.value.trim();
+    // La duración se guarda como número; si no es un entero válido se deja el texto para que la validación lo rechace
+    const valor = e.target.dataset.campo === 'duracion_slot' && /^[0-9]+$/.test(t) ? Number(t) : t;
     marcarHorario(fila.dataset.horario, e.target.dataset.campo, valor);
   });
 

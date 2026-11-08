@@ -96,10 +96,16 @@
   /** Traduce errores de la base de datos a códigos de la aplicación */
   function traducirError(e) {
     const msg = (e && e.message) || '';
-    if (e && e.code === '23505') return errorApp('SLOT_OCUPADO', 'Ese horario acaba de ser reservado.');
     if (msg.indexOf('CAPACIDAD_SUPERADA') >= 0) return errorApp('CAPACIDAD_SUPERADA', 'Se superó la capacidad de la mesa.');
     if (msg.indexOf('MESA_INACTIVA') >= 0) return errorApp('MESA_INACTIVA', 'La mesa no está disponible.');
     if (msg.indexOf('FECHA_PASADA') >= 0) return errorApp('FECHA_PASADA', 'La fecha ya pasó.');
+    if (msg.indexOf('FECHA_FUERA_DE_RANGO') >= 0) return errorApp('FECHA_FUERA_DE_RANGO', 'Solo se puede reservar hasta 30 días adelante.');
+    if (msg.indexOf('FUERA_DE_HORARIO') >= 0) return errorApp('FUERA_DE_HORARIO', 'Ese horario no está dentro de la atención del restaurante.');
+    if (e && e.code === '23505' && /nombre_unico/.test(msg)) return errorApp('DUPLICADO', 'Ya existe un registro con ese nombre.');
+    if (e && (e.code === '23514' || e.code === '22P02' || e.code === '22007' || e.code === '22008' || e.code === '22003')) {
+      return errorApp('DATO_INVALIDO', 'Algún dato no tiene el formato correcto. Revisa los campos e inténtalo de nuevo.');
+    }
+    if (e && e.code === '23505') return errorApp('SLOT_OCUPADO', 'Ese horario acaba de ser reservado.');
     if (e && e.code === '23503') return errorApp('TIENE_RESERVAS', 'La mesa tiene reservas asociadas.');
     if (e && /api key/i.test(msg)) return errorApp('CONFIG', 'La key de Supabase no es válida. Revisa SUPABASE_ANON_KEY.');
     if (e && (e.code === '42501' || e.status === 401 || e.status === 403)) return errorApp('NO_AUTORIZADO', 'No autorizado.');
@@ -288,6 +294,12 @@
   function exigirAdmin() {
     if (leerSesion() !== CLAVE_ADMIN_DEMO) throw errorApp('NO_AUTORIZADO', 'No autorizado.');
   }
+  // Igual que los índices únicos mesas_nombre_unico y platos_nombre_unico de la base de datos
+  function nombreLibre(lista, nombre, idPropio) {
+    if (nombre == null) return;
+    const n = String(nombre).trim().toLowerCase();
+    if (lista.some(x => x.id !== idPropio && String(x.nombre).trim().toLowerCase() === n)) throw errorApp('DUPLICADO', 'Ya existe un registro con ese nombre.');
+  }
   function actualizarEn(lista, id, cambios) {
     const i = lista.findIndex(x => x.id === id);
     if (i < 0) throw errorApp('NO_ENCONTRADO', 'Registro no encontrado.');
@@ -301,8 +313,8 @@
       if (o && o.soloActivas) m = m.filter(x => x.activa);
       return espera(copia(m));
     },
-    async crearMesa(m) { exigirAdmin(); const d = leer(); d.mesas.push(Object.assign({ id: uuid(), creado_en: new Date().toISOString(), activa: true }, m)); guardar(d); return espera(null); },
-    async actualizarMesa(id, c) { exigirAdmin(); const d = leer(); actualizarEn(d.mesas, id, c); guardar(d); return espera(null); },
+    async crearMesa(m) { exigirAdmin(); const d = leer(); nombreLibre(d.mesas, m.nombre); d.mesas.push(Object.assign({ id: uuid(), creado_en: new Date().toISOString(), activa: true }, m)); guardar(d); return espera(null); },
+    async actualizarMesa(id, c) { exigirAdmin(); const d = leer(); nombreLibre(d.mesas, c.nombre, id); actualizarEn(d.mesas, id, c); guardar(d); return espera(null); },
     async borrarMesa(id) {
       exigirAdmin();
       const d = leer();
@@ -325,8 +337,8 @@
       if (o && o.soloDisponibles) p = p.filter(x => x.disponible);
       return espera(copia(p));
     },
-    async crearPlato(p) { exigirAdmin(); const d = leer(); d.platos.push(Object.assign({ id: uuid() }, p)); guardar(d); return espera(null); },
-    async actualizarPlato(id, c) { exigirAdmin(); const d = leer(); actualizarEn(d.platos, id, c); guardar(d); return espera(null); },
+    async crearPlato(p) { exigirAdmin(); const d = leer(); nombreLibre(d.platos, p.nombre); d.platos.push(Object.assign({ id: uuid() }, p)); guardar(d); return espera(null); },
+    async actualizarPlato(id, c) { exigirAdmin(); const d = leer(); nombreLibre(d.platos, c.nombre, id); actualizarEn(d.platos, id, c); guardar(d); return espera(null); },
     async borrarPlato(id) { exigirAdmin(); const d = leer(); d.platos = d.platos.filter(p => p.id !== id); guardar(d); return espera(null); },
 
     async ocupados(fecha, mesaId) {
@@ -338,8 +350,18 @@
       const d = leer();
       const mesa = d.mesas.find(m => m.id === r.mesa_id);
       // Las mismas reglas que aplican el trigger y el índice único en Supabase
+      // Igual que la política reservas_crear: el público solo crea reservas confirmadas
+      if (r.estado && r.estado !== 'confirmada') throw errorApp('NO_AUTORIZADO', 'No autorizado.');
       if (!mesa || !mesa.activa) throw errorApp('MESA_INACTIVA', 'La mesa no está disponible.');
       if (r.num_personas > mesa.capacidad) throw errorApp('CAPACIDAD_SUPERADA', 'Se superó la capacidad de la mesa.');
+      const hoy = fechaISO(new Date());
+      const limite = new Date(); limite.setDate(limite.getDate() + 30);
+      if (r.fecha < hoy) throw errorApp('FECHA_PASADA', 'La fecha ya pasó.');
+      if (r.fecha > fechaISO(limite)) throw errorApp('FECHA_FUERA_DE_RANGO', 'Solo se puede reservar hasta 30 días adelante.');
+      const dia = diaSemana(r.fecha);
+      if (!d.horarios.some(h => h.activo && h.dia_semana === dia && aMinutos(r.hora_inicio) >= aMinutos(h.hora_inicio) && aMinutos(r.hora_fin) <= aMinutos(h.hora_fin))) {
+        throw errorApp('FUERA_DE_HORARIO', 'Ese horario no está dentro de la atención del restaurante.');
+      }
       if (d.reservas.some(x => x.mesa_id === r.mesa_id && x.fecha === r.fecha && x.hora_inicio === r.hora_inicio && x.estado !== 'cancelada')) {
         throw errorApp('SLOT_OCUPADO', 'Ese horario acaba de ser reservado.');
       }
@@ -376,12 +398,31 @@
   // ---------------------------------------------------------------------------
   const api = MODO === 'supabase' ? supabaseApi : demoApi;
 
+  // Antes de guardar se revisa cada dato con las mismas reglas de la base de datos (js/validacion.js).
+  // Así un dato mal formado nunca sale del navegador, aunque se salte el formulario.
+  const V = window.KonysValidacion;
+  [
+    ['crearReserva', 'reserva', 0, false], ['actualizarReserva', 'reserva', 1, true],
+    ['crearMesa', 'mesa', 0, false], ['actualizarMesa', 'mesa', 1, true],
+    ['crearPlato', 'plato', 0, false], ['actualizarPlato', 'plato', 1, true],
+    ['crearHorario', 'horario', 0, false], ['actualizarHorario', 'horario', 1, true]
+  ].forEach(([metodo, tipo, pos, parcial]) => {
+    const original = api[metodo];
+    api[metodo] = function () {
+      const datos = arguments[pos];
+      const err = !datos || typeof datos !== 'object' ? 'Datos vacíos.' : (V ? V.registro[tipo](datos, parcial) : '');
+      if (err) return Promise.reject(errorApp('DATO_INVALIDO', err));
+      return original.apply(this, arguments);
+    };
+  });
+
   window.Konys = {
     modo: MODO,
     datos: api,
     cerrarSesionAdmin: borrarSesion,
     claveSesionAdmin: leerSesion,
     haySesionAdmin: () => !!leerSesion(),
+    validar: V,
     util: {
       fechaISO, parseFecha, aMinutos, aHora, hora12, fechaLarga, fechaCorta, diaSemana, precioCOP, generarSlots,
       DIAS, DIAS_LEGIBLES, MESES,
